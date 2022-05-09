@@ -57,15 +57,10 @@ type C__XDP_Config struct {
 func main() {
 	// ret := convertToCType(if_name)
 	cfg := config.NewXDPConfig()
-
 	// reconfigure the XDP program
 	cfg.Ifname = "ens33"
 	ret := convertToCType(*cfg)
-	C_cfg := C__XDP_Config{
-		Xdp_flags: ret[0].(C.uint),
-		Filename:  ret[1].(*C.char),
-		if_name:   ret[2].(*C.char),
-	}
+	C_cfg := C.struct_input_args{ret[0].(C.uint), ret[1].(*C.char), ret[2].(*C.char)}
 	fmt.Print(errors.GetErrorString(int(
-		C.attach_bpf_prog_to_if(C_cfg.if_name, C_cfg.Xdp_flags, C_cfg.Filename))))
+		C.attach_bpf_prog_to_if(C_cfg))))
 }

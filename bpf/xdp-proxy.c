@@ -5,7 +5,7 @@
 #include <linux/if_link.h>
 #include "headers/common_defines.h"
 #include "headers/load-bpf.h"
-
+#include <stdlib.h>
 /* Attach to ens33 by default */
 #define DEV_NAME "ens33"
 
@@ -84,7 +84,7 @@ int do_detach(int idx, int tar_prog_id) {
     return OK;
 }
 
-int attach_bpf_prog_to_if(char *if_name, __u32 xdp_flags, char *filename)
+int attach_bpf_prog_to_if(struct input_args inputs)
 {
     struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
     struct bpf_prog_load_attr prog_load_attr = {
@@ -95,15 +95,12 @@ int attach_bpf_prog_to_if(char *if_name, __u32 xdp_flags, char *filename)
     struct bpf_map *map;
     int ret, err, i;
     struct config cfg = {
-        .xdp_flags = xdp_flags,
-        .ifindex = if_nametoindex(if_name),
+        .xdp_flags = inputs.xdp_flags,
+        .ifindex = if_nametoindex(inputs.ifname),
     };
 
     if (cfg.ifindex == 0) {
         return ERROR_NOT_FOUND_INTERFACE;
     }
-    return 0;
+    return OK;
 }
-
-// clang -g -O2 -Wall -I. -c xdp-proxy.c -o xdp-proxy.o
-// clang -Wall -O2 -g xdp-proxy.o -static -lbpf -lelf -lz -o xdp-proxy
