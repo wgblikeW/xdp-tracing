@@ -6,6 +6,7 @@ struct config {
     __u32 xdp_flags;
     int ifindex;
     char *ifname;
+    char *filename;
     char ifname_buf[IF_NAMESIZE];
     int redirect_ifindex;
     char *redirect_ifname;
@@ -13,7 +14,6 @@ struct config {
     bool do_unload;
     bool reuse_maps;
     char pin_dir[512];
-    char filename[512];
     char progsec[32];
     char src_mac[18];
     char dest_mac[18];

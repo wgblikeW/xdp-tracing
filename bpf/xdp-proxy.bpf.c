@@ -7,7 +7,7 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 #include <linux/tcp.h>
-#include "sockops.h"
+#include "headers/sockops.h"
 
 SEC("xdp")
 int xdp_proxy(struct xdp_md *ctx)
