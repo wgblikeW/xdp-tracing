@@ -12,6 +12,14 @@ import (
 	"github.com/p1nant0m/xdp-tracing/config"
 )
 
+func Warp_do_detach(ifname string, prog_id int) int {
+	ifIdx := Warp_if_nametoindex(ifname)
+	C_type_ifIdx := convertToCType(ifIdx)[0].(C.int)
+	C_type_prog_id := convertToCType(prog_id)[0].(C.int)
+
+	return (int)(C.do_detach(C_type_ifIdx, C_type_prog_id))
+}
+
 func Warp_if_nametoindex(devName string) int {
 	return (int)(C.if_nametoindex(convertToCType(devName)[0].(*C.char)))
 }
@@ -43,6 +51,8 @@ func convertToCType(goResp interface{}) []interface{} {
 		ret = append(ret, (*C.char)(unsafe.Pointer(&[]byte(vG.Interface().(string))[0])))
 	case reflect.Uint32:
 		ret = append(ret, (C.uint)(vG.Interface().(uint32)))
+	case reflect.Int:
+		ret = append(ret, (C.int)(vG.Interface().(int)))
 	}
 	return ret
 }

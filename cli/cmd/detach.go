@@ -5,6 +5,10 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"fmt"
+
+	"github.com/p1nant0m/xdp-tracing/bpf"
+	"github.com/p1nant0m/xdp-tracing/bpf/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -12,6 +16,14 @@ const (
 	shortDescription_Detach = ""
 	longDescription_Detach  = ""
 )
+
+type detachFlags struct {
+	prog_id int
+}
+
+var dFlags = &detachFlags{
+	prog_id: 0,
+}
 
 // detachCmd represents the detach command
 var detachCmd = &cobra.Command{
@@ -22,7 +34,10 @@ var detachCmd = &cobra.Command{
 }
 
 func detachCommandRunFunc(cmd *cobra.Command, args []string) {
+	gFlags, _ := getGlobalFlags(cmd)
+	errCode := bpf.Warp_do_detach(gFlags.DevName, dFlags.prog_id)
 
+	fmt.Println(errors.GetErrorString(errCode))
 }
 
 func init() {
@@ -37,4 +52,6 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// detachCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	detachCmd.PersistentFlags().IntVarP(&dFlags.prog_id, "prog-id", "p", 0, "BPF program Index that need to detach <using bpftool prog to check>")
+	detachCmd.MarkPersistentFlagRequired("prog-id")
 }
