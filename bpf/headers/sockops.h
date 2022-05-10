@@ -1,6 +1,5 @@
-#ifndef __SOCK_OPS_H__
-#define __SOCK_OPS_H__
 #define MAXIMUM_LIST_LEN 20
+#define MAX_CPUS 128
 #include <linux/bpf.h>
 
 struct sock_key
@@ -28,10 +27,8 @@ struct myvalue {
 };
 
 struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, struct sock_key);
-    __type(value, struct myvalue);
-    __uint(max_entries, 1024);
-} hash_map SEC(".maps");
-
-#endif /* __SOCK_OPS_H__ */
+    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
+    __uint(key_size, sizeof(int));
+    __uint(value_size, sizeof(__u32));
+    __uint(max_entries, MAX_CPUS);
+} bridge SEC(".maps");

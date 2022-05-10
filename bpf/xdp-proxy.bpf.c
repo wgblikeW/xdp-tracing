@@ -9,12 +9,18 @@
 #include <linux/tcp.h>
 #include "headers/sockops.h"
 
+
+
 SEC("xdp")
 int xdp_proxy(struct xdp_md *ctx)
 {
+    /* Set up libbpf errors and debug info callback */
+   
+    
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
     __u64 nh_off = 0;
+    __u64 flags = BPF_F_CURRENT_CPU;
 
     struct ethhdr *eth = data;
     nh_off = sizeof(struct ethhdr);
@@ -58,31 +64,10 @@ int xdp_proxy(struct xdp_md *ctx)
         .dport = ((tcphdr->dest & 0xff00) >> 8) + ((tcphdr->dest & 0x00ff) << 8)};
     char *payload = data + nh_off;
 
-    // filter TCP Steam without port of 1080
-    if (key.dport == 22) {
-        return XDP_PASS;
-    }
-    struct myvalue *value = bpf_map_lookup_elem(&hash_map, &key);
-    struct tcpInfo curInfo = {tcphdr->syn, tcphdr->fin, tcphdr->rst, tcphdr->psh, tcphdr->ack, tcphdr->urg};
-    if (data + nh_off + 5 < data_end) {
-        __builtin_memcpy(curInfo.payload, payload, 5);
-    }
-
-    if (value)
-    {
-        // check boundary of the memory in order to pass the JIT check
-        if (value->counter + 1 < MAXIMUM_LIST_LEN && value->counter + 1 > 0) {
-            value->info[value->counter + 1] = curInfo;
-        }
-        __sync_fetch_and_add(&value->counter, 1);
-    }
-    else
-    {
-        struct myvalue val = {0};
-        val.info[0] = curInfo;
-        bpf_map_update_elem(&hash_map, &key, &val, BPF_ANY);
-    }
-
+    int ret;
+    ret = bpf_perf_event_output(ctx, &bridge, flags, &key, sizeof(key));
+    if (ret)
+        bpf_printk("perf_event_output failed: %d\n", ret);
     return XDP_PASS;
 }
 

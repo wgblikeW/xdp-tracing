@@ -69,10 +69,10 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// attachCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	attachCmd.LocalFlags().BoolVarP(&aFlags.SKB_MODE, "sk-mode", "S", false, "Install XDP program in SKB (AKA generic) mode")
-	attachCmd.LocalFlags().BoolVarP(&aFlags.NATIVE_MODE, "native-mode", "N", false, "Install XDP program in native mode")
-	attachCmd.LocalFlags().BoolVarP(&aFlags.HW_MODE, "hw-mode", "H", false, "Install XDP program in hw mode")
-	attachCmd.LocalFlags().StringVarP(&aFlags.FileName, "file-name", "f", "../../bpf/xdp_proxy_kern.o", "binary eBPF program path")
+	attachCmd.PersistentFlags().BoolVarP(&aFlags.SKB_MODE, "sk-mode", "S", false, "Install XDP program in SKB (AKA generic) mode")
+	attachCmd.PersistentFlags().BoolVarP(&aFlags.NATIVE_MODE, "native-mode", "N", false, "Install XDP program in native mode")
+	attachCmd.PersistentFlags().BoolVarP(&aFlags.HW_MODE, "hw-mode", "H", false, "Install XDP program in hw mode")
+	attachCmd.PersistentFlags().StringVarP(&aFlags.FileName, "file-name", "f", "../../bpf/xdp_proxy_kern.o", "binary eBPF program path")
 	attachCmd.MarkPersistentFlagRequired("file-name")
 }
 
