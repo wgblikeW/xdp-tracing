@@ -47,7 +47,5 @@ func init() {
 	// when this action is called directly.
 	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	rootCmd.PersistentFlags().StringVarP(&globalFlags.DevName, "dev", "d", "eth0", "Operate on device <ifname>")
-	rootCmd.PersistentFlags().BoolVarP(&globalFlags.SKB_MODE, "sk-mode", "S", false, "Install XDP program in SKB (AKA generic) mode")
-	rootCmd.PersistentFlags().BoolVarP(&globalFlags.NATIVE_MODE, "native-mode", "N", false, "Install XDP program in native mode")
-	rootCmd.PersistentFlags().BoolVarP(&globalFlags.HW_MODE, "hw-mode", "H", false, "Install XDP program in hw mode")
+	rootCmd.MarkPersistentFlagRequired("dev")
 }

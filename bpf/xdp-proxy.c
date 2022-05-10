@@ -11,7 +11,7 @@
 
 enum
 {
-    /* Error Code */
+    /* Error Code this should be synchronized to errors.go*/
     OK,
     ERROR_DETACH_PROG_FROM_INTERF,
     ERROR_BPF_GET_LINK_XDP_ID,
@@ -21,6 +21,9 @@ enum
     ERROR_NOT_FOUND_INTERFACE,
     ERROR_OPENING_BPF_OBJECT,
     ERROR_LOADING_BPF_OBJECT,
+    ERROR_SET_RLIMIT_MEMLOCK,
+    ERROR_BPF_FILE_OPEN,
+    ERROR_BPF_LOADING_TO_KERN,
 };
 
 /*  attach XDP type BPF program to interface
@@ -90,6 +93,7 @@ int attach_bpf_prog_to_if(struct input_args inputs)
     struct bpf_prog_load_attr prog_load_attr = {
         .prog_type = BPF_PROG_TYPE_XDP,
     };
+    // prog_fd uses for saving program id of eBPF program (use bpftool prog to check its id)
     int prog_fd, map_fd;
     struct bpf_object *obj;
     struct bpf_map *map;
@@ -102,5 +106,24 @@ int attach_bpf_prog_to_if(struct input_args inputs)
     if (cfg.ifindex == 0) {
         return ERROR_NOT_FOUND_INTERFACE;
     }
+    
+    if (setrlimit(RLIMIT_MEMLOCK, &r)) {
+        return ERROR_SET_RLIMIT_MEMLOCK;
+    }
+
+    prog_load_attr.file = inputs.filename; // binary eBPF program filename
+    if (bpf_prog_load_xattr(&prog_load_attr, &obj, &prog_fd)) {
+        return ERROR_BPF_FILE_OPEN;
+    }
+
+    if (!prog_fd) {
+        return ERROR_BPF_LOADING_TO_KERN;
+    }
+
+    err = do_attach(cfg.ifindex, prog_fd, cfg.xdp_flags);
+    if (err) {
+        return ERROR_ATTACH_PROG_TO_INTERF;
+    }
+
     return OK;
 }

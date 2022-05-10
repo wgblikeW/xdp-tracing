@@ -17,6 +17,9 @@ const (
 	ERROR_NOT_FOUND_INTERFACE
 	ERROR_OPENING_BPF_OBJECT
 	ERROR_LOADING_BPF_OBJECT
+	ERROR_SET_RLIMIT_MEMLOCK
+	ERROR_BPF_FILE_OPEN
+	ERROR_BPF_LOADING_TO_KERN
 )
 
 // private variable for mapping int error code to error string
@@ -33,6 +36,9 @@ func init() {
 		ERROR_NOT_FOUND_INTERFACE:          fmt.Errorf("failed to find given interface"),
 		ERROR_OPENING_BPF_OBJECT:           fmt.Errorf("failed to open and/or load BPF object"),
 		ERROR_LOADING_BPF_OBJECT:           fmt.Errorf("failed to load BPF object"),
+		ERROR_SET_RLIMIT_MEMLOCK:           fmt.Errorf("setrlimit(RLIMIT_MEMLOCK)"),
+		ERROR_BPF_FILE_OPEN:                fmt.Errorf("error when reading eBPF binary program into memory"),
+		ERROR_BPF_LOADING_TO_KERN:          fmt.Errorf("error when loading eBPF binary program into kernel"),
 	}
 }
 
