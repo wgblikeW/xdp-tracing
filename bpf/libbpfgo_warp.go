@@ -2,6 +2,7 @@ package bpf
 
 /*
 #include "headers/load-bpf.h"
+#include <net/if.h>
 */
 import "C"
 import (
@@ -10,6 +11,10 @@ import (
 
 	"github.com/p1nant0m/xdp-tracing/config"
 )
+
+func Warp_if_nametoindex(devName string) int {
+	return (int)(C.if_nametoindex(convertToCType(devName)[0].(*C.char)))
+}
 
 func Attach_bpf_prog_to_if(cfg *config.XDPConfig) int {
 	C_cfg := newC_XDPConfig(cfg)
