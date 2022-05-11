@@ -37,25 +37,32 @@ type PayloadMeta struct {
 	PayloadLen uint32
 }
 
+// TCP_IP_Handler Struct contains the field that we need in observing
 type TCP_IP_Handler struct {
-	TcpFlagsS string
 	Timestamp string
+
 	// IP Header Field
 	SrcIP net.IP
 	DstIP net.IP
 	TTL   uint8
+
 	// TCP Header Field
-	SrcPort      layers.TCPPort
-	DstPort      layers.TCPPort
+	TcpFlagsS string
+	SrcPort   layers.TCPPort
+	DstPort   layers.TCPPort
+
+	// Application Payload
 	PayloadExist bool
 	*PayloadMeta
 }
 
+// NewTCPFlags return the pointer of new tcpFlags Struct with TCP flags Settings
 func NewTCPFlags(tcp *layers.TCP) *tcpFlags {
 	return &tcpFlags{FIN: tcp.FIN, ACK: tcp.ACK, RST: tcp.RST,
 		PSH: tcp.PSH, URG: tcp.URG, ECE: tcp.ECE, CWR: tcp.CWR, NS: tcp.NS, SYN: tcp.SYN}
 }
 
+// parseFalgsToString parses the TCP Flags settings and returns string contain flags that were set
 func parseFlagsToString(flags interface{}) string {
 	ret := ""
 	v := reflect.ValueOf(flags).Elem()
@@ -71,12 +78,14 @@ func parseFlagsToString(flags interface{}) string {
 	return ret
 }
 
+// NewTCPIPHandler returns the pointer of strcut of TCP_IP_Handler
 func NewTCPIPHandler() *TCP_IP_Handler {
 	return &TCP_IP_Handler{
 		PayloadMeta: &PayloadMeta{},
 	}
 }
 
+// hasTCPLayerAndRetrieve returns *layers.TCP if it exists in the raw packet
 func (handler *TCP_IP_Handler) hasTCPLayerAndRetrieve(packet gopacket.Packet) (*layers.TCP, error) {
 	if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
 		return tcpLayer.(*layers.TCP), nil
@@ -84,6 +93,7 @@ func (handler *TCP_IP_Handler) hasTCPLayerAndRetrieve(packet gopacket.Packet) (*
 	return nil, errors.New("no valid TCP layers found")
 }
 
+// hasIPLayerAndRetrieve returns *layers.IPv4/*layer.IPv6 if it exists in the raw packet
 func (handler *TCP_IP_Handler) hasIPLayerAndRetrieve(packet gopacket.Packet) (gopacket.Layer, int, error) {
 	if ipV4Layer := packet.Layer(layers.LayerTypeIPv4); ipV4Layer != nil {
 		return ipV4Layer, IPv4Packet, nil
@@ -93,6 +103,7 @@ func (handler *TCP_IP_Handler) hasIPLayerAndRetrieve(packet gopacket.Packet) (go
 	return nil, None, errors.New("no valid IP layers found")
 }
 
+// resolveIPv4Field fixs in the field related to IPv4 Header
 func (handler *TCP_IP_Handler) resolveIPv4Field(ipLayer *layers.IPv4) {
 	handler.SrcIP = ipLayer.SrcIP
 	handler.DstIP = ipLayer.DstIP
@@ -104,6 +115,7 @@ func (handler *TCP_IP_Handler) resolveIPv6Field(ipLayer *layers.IPv6) {
 
 }
 
+// resolveTCPField fixs in the field related to TCP Header
 func (handler *TCP_IP_Handler) resolveTCPField(tcpLayer *layers.TCP) {
 	handler.SrcPort = tcpLayer.SrcPort
 	handler.DstPort = tcpLayer.DstPort
@@ -112,6 +124,7 @@ func (handler *TCP_IP_Handler) resolveTCPField(tcpLayer *layers.TCP) {
 	handler.TcpFlagsS = parseFlagsToString(tcpFlags)
 }
 
+// Handle Implement the Handler Interface and it fills up the field in TCP_IP_Handler struct
 func (handler *TCP_IP_Handler) Handle(packet gopacket.Packet) error {
 	//TODO: Adding support for IPv6
 	ipLayer, version, err := handler.hasIPLayerAndRetrieve(packet)
