@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 	"reflect"
+	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -38,7 +39,7 @@ type PayloadMeta struct {
 
 type TCP_IP_Handler struct {
 	TcpFlagsS string
-	// Timestamp
+	Timestamp string
 	// IP Header Field
 	SrcIP net.IP
 	DstIP net.IP
@@ -68,6 +69,12 @@ func parseFlagsToString(flags interface{}) string {
 	}
 
 	return ret
+}
+
+func NewTCPIPHandler() *TCP_IP_Handler {
+	return &TCP_IP_Handler{
+		PayloadMeta: &PayloadMeta{},
+	}
 }
 
 func (handler *TCP_IP_Handler) hasTCPLayerAndRetrieve(packet gopacket.Packet) (*layers.TCP, error) {
@@ -105,16 +112,16 @@ func (handler *TCP_IP_Handler) resolveTCPField(tcpLayer *layers.TCP) {
 	handler.TcpFlagsS = parseFlagsToString(tcpFlags)
 }
 
-func (handler *TCP_IP_Handler) Handle(packet gopacket.Packet) (interface{}, error) {
+func (handler *TCP_IP_Handler) Handle(packet gopacket.Packet) error {
 	//TODO: Adding support for IPv6
 	ipLayer, version, err := handler.hasIPLayerAndRetrieve(packet)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	tcpLayer, err := handler.hasTCPLayerAndRetrieve(packet)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// resolve IP Header Field
@@ -132,13 +139,15 @@ func (handler *TCP_IP_Handler) Handle(packet gopacket.Packet) (interface{}, erro
 	if appLayer := packet.ApplicationLayer(); appLayer != nil {
 		payload := appLayer.Payload()
 		handler.PayloadExist = true
-		handler.PayloadMeta = &PayloadMeta{
-			Payload:    payload,
-			PayloadLen: uint32(len(payload)),
-		}
+
+		// PayloadMeta Settings
+		handler.Payload = payload
+		handler.PayloadLen = uint32(len(payload))
 	} else {
 		handler.PayloadExist = false
 	}
 
-	return handler, nil
+	handler.Timestamp = time.Now().Format("2006-01-02 15:04:05.7057525")
+
+	return nil
 }

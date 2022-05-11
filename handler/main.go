@@ -27,6 +27,7 @@ func main() {
 	}
 	fmt.Println("Listening on Raw Socket")
 	defer syscall.Close(fd)
+	tcpHandler := handler.NewTCPIPHandler()
 
 	for {
 		buf := make([]byte, 4096)
@@ -36,12 +37,10 @@ func main() {
 		}
 
 		packet := gopacket.NewPacket(buf, layers.LayerTypeEthernet, gopacket.Default)
-		tcpHandler := &handler.TCP_IP_Handler{}
-		tcpInfoInF, err := tcpHandler.Handle(packet)
-		tcpInfo := tcpInfoInF.(*handler.TCP_IP_Handler)
+		err = tcpHandler.Handle(packet)
 		if err == nil {
-			fmt.Printf("%s:%d -> %s:%d [%s] TTL:%d\n", tcpInfo.SrcIP, tcpInfo.SrcPort, tcpInfo.DstIP, tcpInfo.DstPort, tcpInfo.TcpFlagsS, tcpInfo.TTL)
-			if tcpInfo.PayloadExist {
+			fmt.Printf("[%s] %s:%d -> %s:%d [%s] TTL:%d\n", tcpHandler.Timestamp, tcpHandler.SrcIP, tcpHandler.SrcPort, tcpHandler.DstIP, tcpHandler.DstPort, tcpHandler.TcpFlagsS, tcpHandler.TTL)
+			if tcpHandler.PayloadExist {
 				fmt.Println(hex.Dump(tcpHandler.Payload))
 			}
 		}
