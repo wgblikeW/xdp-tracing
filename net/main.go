@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"syscall"
@@ -38,6 +39,10 @@ func parseFlagsToString(flags interface{}) string {
 			ret += v.Type().Field(i).Name + SPACE
 		}
 	}
+	if len(ret) != 0 {
+		return ret[0 : len(ret)-1]
+	}
+
 	return ret
 }
 
@@ -51,7 +56,7 @@ func main() {
 	defer syscall.Close(fd)
 
 	for {
-		buf := make([]byte, 65536)
+		buf := make([]byte, 4096)
 		_, _, err := syscall.Recvfrom(fd, buf, 0)
 		if err != nil {
 			panic(err)
@@ -65,7 +70,10 @@ func main() {
 				PSH: tcp.PSH, URG: tcp.URG, ECE: tcp.ECE, CWR: tcp.CWR, NS: tcp.NS, SYN: tcp.SYN}
 			stringFlags := parseFlagsToString(flags)
 			if len(stringFlags) != 0 {
-				fmt.Printf("%s:%d -> %s:%d [%s]\n", ip.SrcIP, tcp.SrcPort, ip.DstIP, tcp.DstPort, stringFlags[0:len(stringFlags)-1])
+				fmt.Printf("%s:%d -> %s:%d [%s] TTL:%d\n", ip.SrcIP, tcp.SrcPort, ip.DstIP, tcp.DstPort, stringFlags, ip.TTL)
+			}
+			if app := packet.ApplicationLayer(); app != nil {
+				fmt.Println(hex.Dump(app.Payload()))
 			}
 		}
 	}
