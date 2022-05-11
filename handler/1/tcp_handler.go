@@ -174,19 +174,20 @@ func (handler *TCP_IP_Handler) Handle(packet gopacket.Packet) error {
 	return nil
 }
 
-func find(arr [][]byte, elem *reflect.Value) int {
+func find(uint32List []uint32, elem *reflect.Value) int {
 	switch elem.Kind() {
 	case reflect.Uint16:
 		// Process Port Field
-		for _, port := range arr {
-			if (uint16)(utils.BytesToInt(port)) == (uint16)(elem.Interface().(layers.TCPPort)) {
+		for _, port := range uint32List {
+			if (uint16)(port) == (uint16)(elem.Interface().(layers.TCPPort)) {
 				// Match the Rules, access the packet
 				return PASS
 			}
 		}
 	case reflect.Slice:
-		for _, address := range arr {
-			if (uint32)(utils.BytesToInt(address)) == uint32(utils.BytesToInt(([]byte)(elem.Interface().(net.IP)))) {
+		// Process Address Field
+		for _, address := range uint32List {
+			if address == uint32(utils.BytesToUInt32(([]byte)(elem.Interface().(net.IP)))) {
 				// Match the Rules, access the packet
 				return PASS
 			}
@@ -198,12 +199,12 @@ func find(arr [][]byte, elem *reflect.Value) int {
 var support_rules_field = []string{"SrcIP", "DstIP", "SrcPort", "DstPort"}
 
 // Filter Should be called after TCP_IP_Handler Struct is fully constructed(call Handle())
-func (handler *TCP_IP_Handler) Filter(rules map[string][][]byte) PacketStatus {
+func (handler *TCP_IP_Handler) Filter(rules map[string][]uint32) PacketStatus {
 	flag := 1 // Determine the packet whether is satisfied with the rules
 	for _, field := range support_rules_field {
-		if bytes, ok := rules[field]; ok {
+		if uint32List, ok := rules[field]; ok {
 			v := reflect.ValueOf(handler).Elem().FieldByName(field)
-			flag &= find(bytes, &v)
+			flag &= find(uint32List, &v)
 		}
 	}
 	if flag == 1 {

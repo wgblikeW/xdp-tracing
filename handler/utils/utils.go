@@ -5,16 +5,16 @@ import (
 	"encoding/binary"
 )
 
-func IntToBytes(n int) []byte {
-	data := int64(n)
+func UInt32ToBytes(n uint32) []byte {
+	data := n
 	bytebuf := bytes.NewBuffer([]byte{})
 	binary.Write(bytebuf, binary.BigEndian, data)
 	return bytebuf.Bytes()
 }
 
-func BytesToInt(bys []byte) int {
+func BytesToUInt32(bys []byte) uint32 {
 	bytebuff := bytes.NewBuffer(bys)
-	var data int64
+	var data uint32
 	binary.Read(bytebuff, binary.BigEndian, &data)
-	return int(data)
+	return data
 }

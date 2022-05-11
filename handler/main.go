@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
+	"net"
 	"syscall"
 
 	"github.com/google/gopacket"
@@ -29,11 +30,12 @@ func main() {
 	fmt.Println("Listening on Raw Socket")
 	defer syscall.Close(fd)
 	tcpHandler := handler.NewTCPIPHandler()
-	rules := make(map[string][][]byte)
-	rules["DstPort"] = make([][]byte, 10)
-	rules["DstPort"] = append(rules["DstPort"], utils.IntToBytes(1080))
+	rules := make(map[string][]uint32)
+	rules["SrcIP"] = make([]uint32, 10)
+	rules["SrcIP"] = append(rules["SrcIP"], utils.BytesToUInt32(net.ParseIP("192.168.176.1").To4()))
+	buf := make([]byte, 4096)
+
 	for {
-		buf := make([]byte, 4096)
 		_, _, err := syscall.Recvfrom(fd, buf, 0)
 		if err != nil {
 			panic(err)
