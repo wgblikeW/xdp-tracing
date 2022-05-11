@@ -8,10 +8,19 @@ import (
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
+	"github.com/p1nant0m/xdp-tracing/handler/utils"
 )
 
 const (
 	SPACE = " "
+)
+
+// using in Filter
+type PacketStatus int
+
+const (
+	DROP = iota
+	PASS
 )
 
 const (
@@ -33,7 +42,7 @@ type tcpFlags struct {
 }
 
 type PayloadMeta struct {
-	Payload    []byte
+	Payload    *[]byte
 	PayloadLen uint32
 }
 
@@ -154,7 +163,7 @@ func (handler *TCP_IP_Handler) Handle(packet gopacket.Packet) error {
 		handler.PayloadExist = true
 
 		// PayloadMeta Settings
-		handler.Payload = payload
+		handler.Payload = &payload
 		handler.PayloadLen = uint32(len(payload))
 	} else {
 		handler.PayloadExist = false
@@ -163,4 +172,43 @@ func (handler *TCP_IP_Handler) Handle(packet gopacket.Packet) error {
 	handler.Timestamp = time.Now().Format("2006-01-02 15:04:05.7057525")
 
 	return nil
+}
+
+func find(arr [][]byte, elem *reflect.Value) int {
+	switch elem.Kind() {
+	case reflect.Uint16:
+		// Process Port Field
+		for _, port := range arr {
+			if (uint16)(utils.BytesToInt(port)) == (uint16)(elem.Interface().(layers.TCPPort)) {
+				// Match the Rules, access the packet
+				return PASS
+			}
+		}
+	case reflect.Slice:
+		for _, address := range arr {
+			if (uint32)(utils.BytesToInt(address)) == uint32(utils.BytesToInt(([]byte)(elem.Interface().(net.IP)))) {
+				// Match the Rules, access the packet
+				return PASS
+			}
+		}
+	}
+	return DROP
+}
+
+var support_rules_field = []string{"SrcIP", "DstIP", "SrcPort", "DstPort"}
+
+// Filter Should be called after TCP_IP_Handler Struct is fully constructed(call Handle())
+func (handler *TCP_IP_Handler) Filter(rules map[string][][]byte) PacketStatus {
+	flag := 1 // Determine the packet whether is satisfied with the rules
+	for _, field := range support_rules_field {
+		if bytes, ok := rules[field]; ok {
+			v := reflect.ValueOf(handler).Elem().FieldByName(field)
+			flag &= find(bytes, &v)
+		}
+	}
+	if flag == 1 {
+		// All Rules Match
+		return PASS
+	}
+	return DROP
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	handler "github.com/p1nant0m/xdp-tracing/handler/1"
+	"github.com/p1nant0m/xdp-tracing/handler/utils"
 )
 
 // Convert a uint16 to host byte order (big endian)
@@ -28,7 +29,9 @@ func main() {
 	fmt.Println("Listening on Raw Socket")
 	defer syscall.Close(fd)
 	tcpHandler := handler.NewTCPIPHandler()
-
+	rules := make(map[string][][]byte)
+	rules["DstPort"] = make([][]byte, 10)
+	rules["DstPort"] = append(rules["DstPort"], utils.IntToBytes(1080))
 	for {
 		buf := make([]byte, 4096)
 		_, _, err := syscall.Recvfrom(fd, buf, 0)
@@ -38,10 +41,13 @@ func main() {
 
 		packet := gopacket.NewPacket(buf, layers.LayerTypeEthernet, gopacket.Default)
 		err = tcpHandler.Handle(packet)
+		if tcpHandler.Filter(rules) == handler.DROP {
+			continue
+		}
 		if err == nil {
 			fmt.Printf("[%s] %s:%d -> %s:%d [%s] TTL:%d\n", tcpHandler.Timestamp, tcpHandler.SrcIP, tcpHandler.SrcPort, tcpHandler.DstIP, tcpHandler.DstPort, tcpHandler.TcpFlagsS, tcpHandler.TTL)
 			if tcpHandler.PayloadExist {
-				fmt.Println(hex.Dump(tcpHandler.Payload))
+				fmt.Println(hex.Dump(*tcpHandler.Payload))
 			}
 		}
 	}
