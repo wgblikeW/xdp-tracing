@@ -84,8 +84,8 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// captureCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	captureCmd.PersistentFlags().StringArrayVarP(&cFlags.SrcIP, "src-ip", "s", []string{}, "filter Source IPv4 Address (format xxx.xxx.xxx.xxx)")
-	captureCmd.PersistentFlags().StringArrayVarP(&cFlags.DstIP, "dst-ip", "t", []string{}, "filter Destination IPv4 Address (format xxx.xxx.xxx.xxx)")
-	captureCmd.PersistentFlags().StringArrayVarP(&cFlags.SrcPort, "src-port", "p", []string{}, "filter Source Port")
-	captureCmd.PersistentFlags().StringArrayVarP(&cFlags.DstPort, "dst-port", "o", []string{}, "filter Destination Port")
+	captureCmd.Flags().StringArrayVarP(&cFlags.SrcIP, "src-ip", "s", []string{}, "filter Source IPv4 Address (format xxx.xxx.xxx.xxx)")
+	captureCmd.Flags().StringArrayVarP(&cFlags.DstIP, "dst-ip", "t", []string{}, "filter Destination IPv4 Address (format xxx.xxx.xxx.xxx)")
+	captureCmd.Flags().StringArrayVarP(&cFlags.SrcPort, "src-port", "p", []string{}, "filter Source Port")
+	captureCmd.Flags().StringArrayVarP(&cFlags.DstPort, "dst-port", "o", []string{}, "filter Destination Port")
 }

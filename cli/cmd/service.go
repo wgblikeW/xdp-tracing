@@ -8,6 +8,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type serviceFlags struct {
+	configPath string
+}
+
+var sFlags serviceFlags
+
 const (
 	shortDescription_service = ""
 	longDescription_service  = ""
@@ -37,4 +43,6 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// serviceCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	serviceCmd.Flags().StringVarP(&sFlags.configPath, "conf", "c", "../conf/config.yml", "config file path for service <yml format>")
+	serviceCmd.MarkFlagRequired("conf")
 }

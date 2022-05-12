@@ -52,6 +52,8 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// detachCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	detachCmd.PersistentFlags().IntVarP(&dFlags.prog_id, "prog-id", "p", 0, "BPF program Index that need to detach <using bpftool prog to check>")
-	detachCmd.MarkPersistentFlagRequired("prog-id")
+	detachCmd.Flags().IntVarP(&dFlags.prog_id, "prog-id", "p", 0, "BPF program Index that need to detach <using bpftool prog to check>")
+	detachCmd.Flags().StringVarP(&globalFlags.DevName, "dev", "d", "eth0", "Operate on device <ifname>")
+	detachCmd.MarkFlagRequired("dev")
+	detachCmd.MarkFlagRequired("prog-id")
 }
