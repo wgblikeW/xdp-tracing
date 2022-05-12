@@ -9,18 +9,18 @@ import (
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	handler "github.com/p1nant0m/xdp-tracing/handler/1"
+	"github.com/p1nant0m/xdp-tracing/handler"
 	"github.com/p1nant0m/xdp-tracing/handler/utils"
+)
+
+const (
+	SPACE = " "
 )
 
 // Convert a uint16 to host byte order (big endian)
 func Htons(v uint16) int {
 	return int((v << 8) | (v >> 8))
 }
-
-const (
-	SPACE = " "
-)
 
 func MakeRules(rules map[string][]string) map[string][]uint32 {
 	rulesApplied := make(map[string][]uint32)
