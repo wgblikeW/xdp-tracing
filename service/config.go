@@ -26,22 +26,25 @@ func init() {
 // Some fields Mapping to redis.Options
 type RedisConfig struct {
 	PoolFIFO        bool          `yaml:"poolFIFO"`
+	PoolSize        int           `yaml:"poolsize"`
+	MaxRetries      int           `yaml:"maxRetries"`
+	Db              int           `yaml:"db"`
+	Username        string        `yaml:"username"`
+	Network         string        `yaml:"network"`
+	Addr            string        `yaml:"addr"`
+	Password        string        `yaml:"password"`
 	WriteTimeout    time.Duration `yaml:"writeTimeout"`
 	ReadTimeout     time.Duration `yaml:"readTimeout"`
 	DialTimeout     time.Duration `yaml:"dialTimeout"`
 	MaxRetryBackoff time.Duration `yaml:"maxRetryBackoff"`
 	MinRetryBackoff time.Duration `yaml:"minRetryBackoff"`
-	MaxRetries      int           `yaml:"maxRetries"`
-	Username        string        `yaml:"username"`
-	Network         string        `yaml:"network"`
-	Addr            string        `yaml:"addr"`
-	Password        string        `yaml:"password"`
-	Db              int           `yaml:"db"`
 }
 
-func MakeNewRedisOptions() *redis.Options {
+func (redisService *RedisService) MakeNewRedisOptions() {
 	redisConfig := extractRedisConfig()
-	var redisOptions = &redis.Options{
+
+	redisService.Options = &redis.Options{
+		PoolSize:        redisConfig.PoolSize,
 		PoolFIFO:        redisConfig.PoolFIFO,
 		WriteTimeout:    redisConfig.WriteTimeout,
 		ReadTimeout:     redisConfig.ReadTimeout,
@@ -50,11 +53,10 @@ func MakeNewRedisOptions() *redis.Options {
 		MinRetryBackoff: redisConfig.MinRetryBackoff,
 		Username:        redisConfig.Username,
 		Network:         redisConfig.Network,
-		Addr:            redisConfig.Network,
+		Addr:            redisConfig.Addr,
 		Password:        redisConfig.Password,
 		DB:              redisConfig.Db,
 	}
-	return redisOptions
 }
 
 func extractRedisConfig() *RedisConfig {

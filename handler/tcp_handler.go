@@ -253,7 +253,7 @@ func StartTCPIPHandler(ctx context.Context, rules map[string][]string, signal ch
 	tcpHandler := NewTCPIPHandler()
 	buf := make([]byte, 4096)
 	rulesApplied := MakeTCPIPRules(rules)
-	fmt.Print(rulesApplied)
+
 	for {
 		// long-routine
 		_, _, err := syscall.Recvfrom(fd, buf, 0)

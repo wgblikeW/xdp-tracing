@@ -2,3 +2,4 @@ redisdb:
   addr: "localhost:6379"
   password: ""
   db: 0
+  poolsize: 10
