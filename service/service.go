@@ -7,14 +7,10 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-func service() {
+func Service() {
 	ctx := context.Background()
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       0,
-	})
+	rdb := redis.NewClient(MakeNewRedisOptions())
 
 	err := rdb.Set(ctx, "key", "value", 0).Err()
 	if err != nil {
@@ -35,4 +31,9 @@ func service() {
 	} else {
 		fmt.Println("key2", val2)
 	}
+
+	result, _ := rdb.HSet(ctx, "tcp_info", []string{"SrcIP", "192.168.176.1", "SrcPort", "1080"}).Result()
+	fmt.Println(result)
+	val3, _ := rdb.HGetAll(ctx, "tcp_info").Result()
+	fmt.Println(val3)
 }

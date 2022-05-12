@@ -53,8 +53,8 @@ func main() {
 	buf := make([]byte, 4096)
 	// custom rules
 	rules := make(map[string][]string)
-	rules["SrcIP"] = append(rules["SrcIP"], "192.168.176.1")
-	rules["SrcPort"] = append(rules["SrcPort"], "1080")
+	// rules["SrcIP"] = append(rules["SrcIP"], "192.168.176.1")
+	rules["DstPort"] = append(rules["SrcPort"], "6379")
 	rulesApplied := MakeRules(rules)
 
 	for {
