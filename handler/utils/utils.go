@@ -18,3 +18,7 @@ func BytesToUInt32(bys []byte) uint32 {
 	binary.Read(bytebuff, binary.BigEndian, &data)
 	return data
 }
+
+func Htons(v uint16) int {
+	return int((v << 8) | (v >> 8))
+}

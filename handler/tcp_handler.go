@@ -1,9 +1,14 @@
 package handler
 
 import (
+	"context"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"net"
 	"reflect"
+	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/google/gopacket"
@@ -169,7 +174,7 @@ func (handler *TCP_IP_Handler) Handle(packet gopacket.Packet) error {
 		handler.PayloadExist = false
 	}
 
-	handler.Timestamp = time.Now().Format("2006-01-02 15:04:05.7057525")
+	handler.Timestamp = time.Now().Format("2006-01-02 15:04:05.999999999")
 
 	return nil
 }
@@ -204,6 +209,9 @@ func (handler *TCP_IP_Handler) Filter(rules map[string][]uint32) PacketStatus {
 	for _, field := range support_rules_field {
 		if uint32List, ok := rules[field]; ok {
 			v := reflect.ValueOf(handler).Elem().FieldByName(field)
+			if len(uint32List) == 0 {
+				continue
+			}
 			flag &= find(uint32List, &v)
 		}
 	}
@@ -212,4 +220,64 @@ func (handler *TCP_IP_Handler) Filter(rules map[string][]uint32) PacketStatus {
 		return PASS
 	}
 	return DROP
+}
+
+func MakeTCPIPRules(rules map[string][]string) map[string][]uint32 {
+	rulesApplied := make(map[string][]uint32)
+	for key := range rules {
+		rulesApplied[key] = make([]uint32, 10)
+		switch {
+		case key == "SrcIP" || key == "DstIP":
+			for _, address := range rules[key] {
+				rulesApplied[key] = append(rulesApplied[key], utils.BytesToUInt32(net.ParseIP(address).To4()))
+			}
+		case key == "SrcPort" || key == "DstPort":
+			for _, portStr := range rules[key] {
+				portInt, _ := strconv.Atoi(portStr)
+				rulesApplied[key] = append(rulesApplied[key], uint32(portInt))
+			}
+		}
+	}
+	return rulesApplied
+}
+
+func StartTCPIPHandler(ctx context.Context, rules map[string][]string, signal chan struct{}) {
+	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, utils.Htons(syscall.ETH_P_ALL))
+	defer close(signal)
+	if err != nil {
+		fmt.Println("Error: " + err.Error())
+		return
+	}
+	fmt.Println("Listening on Raw Socket")
+	defer syscall.Close(fd)
+	tcpHandler := NewTCPIPHandler()
+	buf := make([]byte, 4096)
+	rulesApplied := MakeTCPIPRules(rules)
+	fmt.Print(rulesApplied)
+	for {
+		// long-routine
+		_, _, err := syscall.Recvfrom(fd, buf, 0)
+		if err != nil {
+			panic(err)
+		}
+
+		packet := gopacket.NewPacket(buf, layers.LayerTypeEthernet, gopacket.Default)
+		err = tcpHandler.Handle(packet)
+		if tcpHandler.Filter(rulesApplied) == DROP {
+			continue
+		}
+		if err == nil {
+			fmt.Printf("[%s] %s:%d -> %s:%d [%s] TTL:%d\n", tcpHandler.Timestamp, tcpHandler.SrcIP, tcpHandler.SrcPort, tcpHandler.DstIP, tcpHandler.DstPort, tcpHandler.TcpFlagsS, tcpHandler.TTL)
+			if tcpHandler.PayloadExist {
+				fmt.Println(hex.Dump(*tcpHandler.Payload))
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			fmt.Println("Stopping Capturing the Packets")
+			return
+		default:
+		}
+	}
 }
