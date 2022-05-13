@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -97,6 +96,24 @@ func NewTCPIPHandler() *TCP_IP_Handler {
 	return &TCP_IP_Handler{
 		PayloadMeta: &PayloadMeta{},
 	}
+}
+
+func (handler *TCP_IP_Handler) copy() *TCP_IP_Handler {
+	duplicate := &TCP_IP_Handler{
+		Timestamp:    handler.Timestamp,
+		SrcIP:        handler.SrcIP,
+		SrcPort:      handler.SrcPort,
+		DstIP:        handler.DstIP,
+		DstPort:      handler.DstPort,
+		TTL:          handler.TTL,
+		TcpFlagsS:    handler.TcpFlagsS,
+		PayloadExist: handler.PayloadExist,
+		PayloadMeta: &PayloadMeta{
+			Payload:    handler.Payload,
+			PayloadLen: handler.PayloadLen,
+		},
+	}
+	return duplicate
 }
 
 // hasTCPLayerAndRetrieve returns *layers.TCP if it exists in the raw packet
@@ -210,6 +227,7 @@ func (handler *TCP_IP_Handler) Filter(rules map[string][]uint32) PacketStatus {
 		if uint32List, ok := rules[field]; ok {
 			v := reflect.ValueOf(handler).Elem().FieldByName(field)
 			if len(uint32List) == 0 {
+				// Empty rule
 				continue
 			}
 			flag &= find(uint32List, &v)
@@ -241,7 +259,7 @@ func MakeTCPIPRules(rules map[string][]string) map[string][]uint32 {
 	return rulesApplied
 }
 
-func StartTCPIPHandler(ctx context.Context, rules map[string][]string, signal chan struct{}) {
+func StartTCPIPHandler(ctx context.Context, rules map[string][]string, signal chan struct{}, observerCh chan<- *TCP_IP_Handler) {
 	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, utils.Htons(syscall.ETH_P_ALL))
 	defer close(signal)
 	if err != nil {
@@ -266,11 +284,9 @@ func StartTCPIPHandler(ctx context.Context, rules map[string][]string, signal ch
 		if tcpHandler.Filter(rulesApplied) == DROP {
 			continue
 		}
+
 		if err == nil {
-			fmt.Printf("[%s] %s:%d -> %s:%d [%s] TTL:%d\n", tcpHandler.Timestamp, tcpHandler.SrcIP, tcpHandler.SrcPort, tcpHandler.DstIP, tcpHandler.DstPort, tcpHandler.TcpFlagsS, tcpHandler.TTL)
-			if tcpHandler.PayloadExist {
-				fmt.Println(hex.Dump(*tcpHandler.Payload))
-			}
+			observerCh <- tcpHandler.copy()
 		}
 
 		select {

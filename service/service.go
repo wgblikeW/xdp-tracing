@@ -11,17 +11,17 @@ import (
 
 type Service interface {
 	Conn()
-	Serve()
+	Serve(taskCh <-chan *AssignTask, notifyCh chan<- *NotifyMsg)
 }
 
-type notifyMsg struct {
+type NotifyMsg struct {
 	ErrorMsg      error
 	ExecuteResult interface{}
 	ResultType    string
 	Duration      time.Duration
 }
 
-type assignTask struct {
+type AssignTask struct {
 	Task       func(*redis.Client) (interface{}, error)
 	ResultType string
 }
@@ -37,12 +37,17 @@ type RedisService struct {
 	ServiceType string
 }
 
-func (redisService *RedisService) Serve(taskCh <-chan *assignTask, notifyCh chan<- *notifyMsg) {
+type TCP_IPCapturer struct {
+	Rules   map[string][]string
+	Handler func()
+}
+
+func (redisService *RedisService) Serve(taskCh <-chan *AssignTask, notifyCh chan<- *NotifyMsg) {
 	for task := range taskCh {
-		go func(execTask *assignTask) {
+		go func(execTask *AssignTask) {
 			start := time.Now()
 			result, err := execTask.Task(redisService.Client)
-			notifyCh <- &notifyMsg{
+			notifyCh <- &NotifyMsg{
 				ErrorMsg:      err,
 				ExecuteResult: result,
 				ResultType:    execTask.ResultType,
@@ -64,6 +69,12 @@ func NewRedisService() *RedisService {
 	return redisService
 }
 
+func NewTCP_IPCapturer() *TCP_IPCapturer {
+	return &TCP_IPCapturer{
+		Rules: make(map[string][]string),
+	}
+}
+
 func Prototype() {
 	ctx := context.Background()
 	redisService := NewRedisService()
@@ -73,7 +84,7 @@ func Prototype() {
 		return result, err
 	}
 
-	taskPeriod := &assignTask{
+	taskPeriod := &AssignTask{
 		Task: func(rdb *redis.Client) (interface{}, error) {
 			result, err := rdb.HGetAll(ctx, "traceid:1234").Result()
 			return result, err
@@ -81,12 +92,12 @@ func Prototype() {
 		ResultType: "map[string]string",
 	}
 
-	taskCh := make(chan *assignTask, 10)
-	notifyCh := make(chan *notifyMsg, 10)
+	taskCh := make(chan *AssignTask, 10)
+	notifyCh := make(chan *NotifyMsg, 10)
 	go redisService.Serve(taskCh, notifyCh)
 	var waitGroup sync.WaitGroup
 
-	taskCh <- &assignTask{
+	taskCh <- &AssignTask{
 		Task:       task,
 		ResultType: "int64",
 	}

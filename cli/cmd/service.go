@@ -19,18 +19,6 @@ const (
 	longDescription_service  = ""
 )
 
-// serviceCmd represents the service command
-var serviceCmd = &cobra.Command{
-	Use:   "service",
-	Short: shortDescription_service,
-	Long:  longDescription_service,
-	Run:   serviceCommandRunFunc,
-}
-
-func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
-
-}
-
 func init() {
 	rootCmd.AddCommand(serviceCmd)
 
@@ -46,3 +34,35 @@ func init() {
 	serviceCmd.Flags().StringVarP(&sFlags.configPath, "conf", "c", "../conf/config.yml", "config file path for service <yml format>")
 	serviceCmd.MarkFlagRequired("conf")
 }
+
+// serviceCmd represents the service command
+var serviceCmd = &cobra.Command{
+	Use:   "service",
+	Short: shortDescription_service,
+	Long:  longDescription_service,
+	Run:   serviceCommandRunFunc,
+}
+
+func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
+	// ctx := context.Background()
+	// watcher := make(chan os.Signal, 1)
+	// signal.Notify(watcher, os.Interrupt, syscall.SIGTERM)
+
+	// // Startup Redis Service
+	// redisTaskCh, redisNotifyCh := startRedisComponet(ctx)
+
+	// capturer := service.NewTCP_IPCapturer()
+	// capturer.MakeNewRules()
+
+}
+
+// func startRedisComponet(ctx context.Context) (chan<- *service.AssignTask, <-chan *service.NotifyMsg) {
+// 	// Setup Redis Service
+// 	var redisServe service.Service = service.NewRedisService()
+// 	redisServe.Conn()
+
+// 	taskCh := make(chan *service.AssignTask, 10)
+// 	notifyCh := make(chan *service.NotifyMsg, 10)
+// 	go redisServe.Serve(taskCh, notifyCh)
+// 	return taskCh, notifyCh
+// }

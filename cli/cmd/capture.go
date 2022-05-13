@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/signal"
@@ -58,13 +59,31 @@ func makeRulesWithFlags(flags *pflag.FlagSet) {
 func captureCommandRunFunc(cmd *cobra.Command, args []string) {
 	watcher := make(chan os.Signal, 1)
 	stopCh := make(chan struct{})
+	observerCh := make(chan *handler.TCP_IP_Handler, 100)
 	signal.Notify(watcher, os.Interrupt, syscall.SIGTERM)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	makeRulesWithFlags(cmd.PersistentFlags())
+	go handler.StartTCPIPHandler(ctx, rules, stopCh, observerCh)
 
-	go handler.StartTCPIPHandler(ctx, rules, stopCh)
+	// display Captured Packets
+	go func(ctx context.Context) {
+		for packet := range observerCh {
+
+			fmt.Printf("[%s] %s:%d -> %s:%d [%s] TTL:%d\n", packet.Timestamp, packet.SrcIP, packet.SrcPort, packet.DstIP, packet.DstPort, packet.TcpFlagsS, packet.TTL)
+			if packet.PayloadExist {
+				fmt.Println(hex.Dump(*packet.Payload))
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+		}
+	}(ctx)
+
 	select {
 	case <-watcher:
 		fmt.Println("\nUser Terminates the World")
@@ -84,8 +103,8 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// captureCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	captureCmd.Flags().StringArrayVarP(&cFlags.SrcIP, "src-ip", "s", []string{}, "filter Source IPv4 Address (format xxx.xxx.xxx.xxx)")
-	captureCmd.Flags().StringArrayVarP(&cFlags.DstIP, "dst-ip", "t", []string{}, "filter Destination IPv4 Address (format xxx.xxx.xxx.xxx)")
-	captureCmd.Flags().StringArrayVarP(&cFlags.SrcPort, "src-port", "p", []string{}, "filter Source Port")
-	captureCmd.Flags().StringArrayVarP(&cFlags.DstPort, "dst-port", "o", []string{}, "filter Destination Port")
+	captureCmd.PersistentFlags().StringArrayVarP(&cFlags.SrcIP, "src-ip", "s", []string{}, "filter Source IPv4 Address (format xxx.xxx.xxx.xxx)")
+	captureCmd.PersistentFlags().StringArrayVarP(&cFlags.DstIP, "dst-ip", "t", []string{}, "filter Destination IPv4 Address (format xxx.xxx.xxx.xxx)")
+	captureCmd.PersistentFlags().StringArrayVarP(&cFlags.SrcPort, "src-port", "p", []string{}, "filter Source Port")
+	captureCmd.PersistentFlags().StringArrayVarP(&cFlags.DstPort, "dst-port", "o", []string{}, "filter Destination Port")
 }

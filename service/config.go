@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -14,13 +15,23 @@ const (
 )
 
 type Config struct {
-	RedisDB *RedisConfig `yaml:"redisdb"`
+	RedisDB      *RedisConfig        `yaml:"redisdb"`
+	PacketFilter *PacketFilterConfig `yaml:"packetfilter"`
 }
 
 var gConfig *Config
 
 func init() {
 	gConfig = readAndParseConfig(os.Args[1])
+}
+
+type stringList []string
+
+type PacketFilterConfig struct {
+	SrcIP   stringList `yaml:"srcip"`
+	DstIP   stringList `yaml:"dstip"`
+	SrcPort stringList `yaml:"srcport"`
+	DstPort stringList `yaml:"dstport"`
 }
 
 // Some fields Mapping to redis.Options
@@ -59,8 +70,22 @@ func (redisService *RedisService) MakeNewRedisOptions() {
 	}
 }
 
+func (capturer *TCP_IPCapturer) MakeNewRules() map[string][]string {
+	filterRules := extractPacketFilterConfig()
+	rules := make(map[string][]string)
+	v := reflect.ValueOf(filterRules).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		rules[v.Type().Field(i).Name] = v.Field(i).Interface().(stringList)
+	}
+	return rules
+}
+
 func extractRedisConfig() *RedisConfig {
 	return gConfig.RedisDB
+}
+
+func extractPacketFilterConfig() *PacketFilterConfig {
+	return gConfig.PacketFilter
 }
 
 func readAndParseConfig(filePath string) *Config {

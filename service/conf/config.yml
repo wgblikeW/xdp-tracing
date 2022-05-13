@@ -3,3 +3,11 @@ redisdb:
   password: ""
   db: 0
   poolsize: 10
+
+packetfilter:
+  srcport: 
+    - 1080
+  dstport: 
+    - 1080
+
+  
