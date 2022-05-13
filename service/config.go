@@ -1,8 +1,6 @@
 package service
 
 import (
-	"fmt"
-	"os"
 	"reflect"
 	"time"
 
@@ -20,10 +18,6 @@ type Config struct {
 }
 
 var gConfig *Config
-
-func init() {
-	gConfig = readAndParseConfig(os.Args[1])
-}
 
 type stringList []string
 
@@ -70,14 +64,14 @@ func (redisService *RedisService) MakeNewRedisOptions() {
 	}
 }
 
-func (capturer *TCP_IPCapturer) MakeNewRules() map[string][]string {
+func (capturer *TCP_IPCapturer) MakeNewRules() {
 	filterRules := extractPacketFilterConfig()
 	rules := make(map[string][]string)
 	v := reflect.ValueOf(filterRules).Elem()
 	for i := 0; i < v.NumField(); i++ {
 		rules[v.Type().Field(i).Name] = v.Field(i).Interface().(stringList)
 	}
-	return rules
+	capturer.Rules = rules
 }
 
 func extractRedisConfig() *RedisConfig {
@@ -88,18 +82,18 @@ func extractPacketFilterConfig() *PacketFilterConfig {
 	return gConfig.PacketFilter
 }
 
-func readAndParseConfig(filePath string) *Config {
+func ReadAndParseConfig(filePath string) error {
 	viper.SetConfigType("yaml")
 	viper.SetConfigFile(filePath)
 
 	err := viper.ReadInConfig()
 	if err != nil {
-		fmt.Println(err.Error())
+		return err
 	}
-	var _config *Config
-	err = viper.Unmarshal(&_config)
+
+	err = viper.Unmarshal(&gConfig)
 	if err != nil {
-		fmt.Println(err.Error())
+		return err
 	}
-	return _config
+	return nil
 }

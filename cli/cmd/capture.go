@@ -58,14 +58,24 @@ func makeRulesWithFlags(flags *pflag.FlagSet) {
 
 func captureCommandRunFunc(cmd *cobra.Command, args []string) {
 	watcher := make(chan os.Signal, 1)
-	stopCh := make(chan struct{})
+	// stopCh := make(chan struct{})
 	observerCh := make(chan *handler.TCP_IP_Handler, 100)
 	signal.Notify(watcher, os.Interrupt, syscall.SIGTERM)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	go func() {
+		<-watcher
+		// OS Signal Catched, exit the program gracefully
+		cancel()
+	}()
+
 	makeRulesWithFlags(cmd.PersistentFlags())
-	go handler.StartTCPIPHandler(ctx, rules, stopCh, observerCh)
+	go func() {
+		handler.StartTCPIPHandler(ctx, rules, observerCh)
+		// if everything goes well, it will not reach the block below
+		cancel()
+	}()
 
 	// display Captured Packets
 	go func(ctx context.Context) {
@@ -84,11 +94,12 @@ func captureCommandRunFunc(cmd *cobra.Command, args []string) {
 		}
 	}(ctx)
 
-	select {
-	case <-watcher:
-		fmt.Println("\nUser Terminates the World")
-	case <-stopCh:
-	}
+	// select {
+	// case <-watcher:
+	// 	fmt.Println("\nUser Terminates the World")
+	// case <-stopCh:
+	// }
+	<-ctx.Done()
 }
 
 func init() {

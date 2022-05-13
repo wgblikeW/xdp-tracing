@@ -259,9 +259,8 @@ func MakeTCPIPRules(rules map[string][]string) map[string][]uint32 {
 	return rulesApplied
 }
 
-func StartTCPIPHandler(ctx context.Context, rules map[string][]string, signal chan struct{}, observerCh chan<- *TCP_IP_Handler) {
+func StartTCPIPHandler(ctx context.Context, rules map[string][]string, observerCh chan<- *TCP_IP_Handler) {
 	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, utils.Htons(syscall.ETH_P_ALL))
-	defer close(signal)
 	if err != nil {
 		fmt.Println("Error: " + err.Error())
 		return

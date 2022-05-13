@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/p1nant0m/xdp-tracing/handler"
 )
 
 type Service interface {
@@ -37,9 +38,12 @@ type RedisService struct {
 	ServiceType string
 }
 
-type TCP_IPCapturer struct {
-	Rules   map[string][]string
-	Handler func()
+func NewRedisService() *RedisService {
+	redisService := &RedisService{
+		ServiceType: REDIS,
+	}
+	redisService.MakeNewRedisOptions()
+	return redisService
 }
 
 func (redisService *RedisService) Serve(taskCh <-chan *AssignTask, notifyCh chan<- *NotifyMsg) {
@@ -61,18 +65,25 @@ func (redisService *RedisService) Conn() {
 	redisService.Client = redis.NewClient(redisService.Options)
 }
 
-func NewRedisService() *RedisService {
-	redisService := &RedisService{
-		ServiceType: REDIS,
-	}
-	redisService.MakeNewRedisOptions()
-	return redisService
+type TCP_IPCapturer struct {
+	Rules   map[string][]string
+	Ctx     context.Context
+	Handler func(context.Context, map[string][]string, chan<- *handler.TCP_IP_Handler)
 }
 
 func NewTCP_IPCapturer() *TCP_IPCapturer {
 	return &TCP_IPCapturer{
 		Rules: make(map[string][]string),
+		Ctx:   context.Background(),
 	}
+}
+
+func (capturer *TCP_IPCapturer) Conn() {
+	capturer.Handler = handler.StartTCPIPHandler
+}
+
+func (capturer *TCP_IPCapturer) Serve(signal chan struct{}, observer chan *TCP_IPCapturer) {
+
 }
 
 func Prototype() {
