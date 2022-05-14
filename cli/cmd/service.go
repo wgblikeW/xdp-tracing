@@ -19,6 +19,7 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/p1nant0m/xdp-tracing/handler"
 	"github.com/p1nant0m/xdp-tracing/service"
+	"github.com/p1nant0m/xdp-tracing/service/rest"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -94,6 +95,9 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 
 	// Making Data Flow From local Capturer to remote RedisDB
 	streamFlow_Cap2Rdb(ctx, redisTaskCh, redisNotifyCh, observeCh)
+
+	// Start Rest Server
+	rest.RestServe(ctx)
 	<-ctx.Done()
 }
 
