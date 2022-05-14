@@ -31,6 +31,8 @@ const (
 	ETCD  = "etcd"
 )
 
+// ---------------------------------------------------- Redis Service ------------------------------
+
 type RedisService struct {
 	Options     *redis.Options
 	Client      *redis.Client
@@ -45,6 +47,10 @@ func NewRedisService(ctx context.Context) *RedisService {
 	}
 	redisService.MakeNewRedisOptions()
 	return redisService
+}
+
+func (redisService *RedisService) Conn() {
+	redisService.Client = redis.NewClient(redisService.Options)
 }
 
 // Serve starts a goroutine to receive "Redis Command Task" from task channel
@@ -72,9 +78,9 @@ func (redisService *RedisService) Serve(taskCh <-chan *AssignTask, notifyCh chan
 	}
 }
 
-func (redisService *RedisService) Conn() {
-	redisService.Client = redis.NewClient(redisService.Options)
-}
+// ---------------------------------------------------- Redis Service ------------------------------
+
+//---------------------------------------------------- TCP_IPCapturer ------------------------------
 
 type TCP_IPCapturer struct {
 	Rules   map[string][]string
@@ -99,3 +105,5 @@ func (capturer *TCP_IPCapturer) Serve(observer chan<- *handler.TCP_IP_Handler) {
 		// if everything goes well, it will not reach the block below
 	}()
 }
+
+//---------------------------------------------------- TCP_IPCapturer ------------------------------
