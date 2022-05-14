@@ -269,6 +269,7 @@ func StartTCPIPHandler(ctx context.Context, rules map[string][]string, observerC
 	logrus.Debug("In StartTCPIPHandler:274 rulesRaw:%v", rules)
 	rulesApplied := MakeTCPIPRules(rules)
 	logrus.Debug("In StartTCPIPHandler:274 rulesApplied:%v", rulesApplied)
+
 	for {
 		// long-routine
 		_, _, err := syscall.Recvfrom(fd, buf, 0)

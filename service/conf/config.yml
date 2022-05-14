@@ -7,5 +7,7 @@ redisdb:
 packetfilter:
   dstport: 
     - 1080
+  srcport:
+    - 1080
 
   

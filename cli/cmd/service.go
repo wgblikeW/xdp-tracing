@@ -32,7 +32,7 @@ var sFlags serviceFlags
 const (
 	shortDescription_service = ""
 	longDescription_service  = ""
-	DEBUG_ENABLE             = true
+	DEBUG_ENABLE             = false
 )
 
 func init() {
@@ -191,9 +191,13 @@ func newRecordTask(ctx context.Context, packet *handler.TCP_IP_Handler) *service
 }
 
 func handleRespFromRdb(resp *service.NotifyMsg) {
-	fmt.Printf("Duration:%v ErrorMsg:%v ExecuteResult:%v ResultType:%v",
-		resp.Duration, resp.ErrorMsg,
-		resp.ExecuteResult, resp.ResultType)
+	switch resp.ResultType {
+	case "[]redis.Cmder":
+		result := resp.ExecuteResult.([]redis.Cmder)
+		fmt.Print(result)
+	default:
+	}
+
 }
 
 func startPacketsCap(ctx context.Context) <-chan *handler.TCP_IP_Handler {

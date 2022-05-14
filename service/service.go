@@ -91,11 +91,8 @@ func (capturer *TCP_IPCapturer) Conn() {
 }
 
 func (capturer *TCP_IPCapturer) Serve(observer chan<- *handler.TCP_IP_Handler) {
-	ctx, cancel := context.WithCancel(capturer.Ctx)
-	defer cancel()
 	go func() {
-		capturer.Handler(ctx, capturer.Rules, observer)
+		capturer.Handler(capturer.Ctx, capturer.Rules, observer)
 		// if everything goes well, it will not reach the block below
-		cancel()
 	}()
 }
