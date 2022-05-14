@@ -62,6 +62,7 @@ var serviceCmd = &cobra.Command{
 	Run:   serviceCommandRunFunc,
 }
 
+// serviceCommandRunFunc Runs the main logic of CLI Command "service"
 func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 	logrus.Debug("In serviceCommandRunFunc:66")
 
@@ -91,10 +92,12 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 	// StartUp Packets Capture
 	observeCh := startPacketsCap(ctx)
 
+	// Making Data Flow From local Capturer to remote RedisDB
 	streamFlow_Cap2Rdb(ctx, redisTaskCh, redisNotifyCh, observeCh)
 	<-ctx.Done()
 }
 
+// streamFlow_Cap2Rdb make data flow from local capturer to Redis
 func streamFlow_Cap2Rdb(ctx context.Context, redisTaskCh chan<- *service.AssignTask,
 	redisNotifyCh <-chan *service.NotifyMsg, packetCh <-chan *handler.TCP_IP_Handler) {
 
@@ -145,6 +148,7 @@ type Value struct {
 	*handler.PayloadMeta
 }
 
+// newRecordTask construct the Redis Task to make record of arriving packet
 func newRecordTask(ctx context.Context, packet *handler.TCP_IP_Handler) *service.AssignTask {
 	key := &Key{
 		SrcIP:   packet.SrcIP,
@@ -190,6 +194,8 @@ func newRecordTask(ctx context.Context, packet *handler.TCP_IP_Handler) *service
 
 }
 
+// handleRespFromRdb process the response from Redis Server after we submit the Task to the
+// server
 func handleRespFromRdb(resp *service.NotifyMsg) {
 	switch resp.ResultType {
 	case "[]redis.Cmder":
@@ -201,7 +207,6 @@ func handleRespFromRdb(resp *service.NotifyMsg) {
 }
 
 func startPacketsCap(ctx context.Context) <-chan *handler.TCP_IP_Handler {
-	logrus.Debug("In startPacketsCap:210")
 	// Create New Instance of TCP_IPCapturer
 	capturer := service.NewTCP_IPCapturer(ctx)
 
@@ -214,7 +219,6 @@ func startPacketsCap(ctx context.Context) <-chan *handler.TCP_IP_Handler {
 }
 
 func startRedisComponet(ctx context.Context) (chan<- *service.AssignTask, <-chan *service.NotifyMsg) {
-	logrus.Debug("In startRedisComponet:222")
 	// Setup Redis Service
 	var redisServe service.Service = service.NewRedisService(ctx)
 	redisServe.Conn()
