@@ -13,6 +13,7 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/p1nant0m/xdp-tracing/handler/utils"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -203,6 +204,7 @@ func find(uint32List []uint32, elem *reflect.Value) int {
 		for _, port := range uint32List {
 			if (uint16)(port) == (uint16)(elem.Interface().(layers.TCPPort)) {
 				// Match the Rules, access the packet
+				logrus.Debug("Port Match Port:%v", port)
 				return PASS
 			}
 		}
@@ -269,8 +271,9 @@ func StartTCPIPHandler(ctx context.Context, rules map[string][]string, observerC
 	defer syscall.Close(fd)
 	tcpHandler := NewTCPIPHandler()
 	buf := make([]byte, 4096)
+	logrus.Debug("In StartTCPIPHandler:274 rulesRaw:%v", rules)
 	rulesApplied := MakeTCPIPRules(rules)
-
+	logrus.Debug("In StartTCPIPHandler:274 rulesApplied:%v", rulesApplied)
 	for {
 		// long-routine
 		_, _, err := syscall.Recvfrom(fd, buf, 0)
@@ -285,6 +288,7 @@ func StartTCPIPHandler(ctx context.Context, rules map[string][]string, observerC
 		}
 
 		if err == nil {
+			logrus.Debug("TCPHandler Filter Receive Packets")
 			observerCh <- tcpHandler.copy()
 		}
 

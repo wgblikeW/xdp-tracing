@@ -52,7 +52,7 @@ func makeRulesWithFlags(flags *pflag.FlagSet) {
 		rules["SrcPort"] = value
 	}
 	if value, err := flags.GetStringArray("dst-port"); err == nil && flags.Changed("dst-port") {
-		rules["dst-port"] = value
+		rules["DstPort"] = value
 	}
 }
 

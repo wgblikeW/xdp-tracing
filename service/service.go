@@ -2,12 +2,11 @@ package service
 
 import (
 	"context"
-	"fmt"
-	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/p1nant0m/xdp-tracing/handler"
+	"github.com/sirupsen/logrus"
 )
 
 type Service interface {
@@ -35,29 +34,38 @@ const (
 type RedisService struct {
 	Options     *redis.Options
 	Client      *redis.Client
+	Ctx         context.Context
 	ServiceType string
 }
 
-func NewRedisService() *RedisService {
+func NewRedisService(ctx context.Context) *RedisService {
 	redisService := &RedisService{
 		ServiceType: REDIS,
+		Ctx:         ctx,
 	}
 	redisService.MakeNewRedisOptions()
 	return redisService
 }
 
 func (redisService *RedisService) Serve(taskCh <-chan *AssignTask, notifyCh chan<- *NotifyMsg) {
+	logrus.Debug("In redisService.Serve:51")
 	for task := range taskCh {
-		go func(execTask *AssignTask) {
-			start := time.Now()
-			result, err := execTask.Task(redisService.Client)
-			notifyCh <- &NotifyMsg{
-				ErrorMsg:      err,
-				ExecuteResult: result,
-				ResultType:    execTask.ResultType,
-				Duration:      time.Since(start),
-			}
-		}(task)
+		select {
+		case <-redisService.Ctx.Done():
+			//TODO: waiting for all requesets are properly process
+			return
+		default:
+			go func(execTask *AssignTask) {
+				start := time.Now()
+				result, err := execTask.Task(redisService.Client)
+				notifyCh <- &NotifyMsg{
+					ErrorMsg:      err,
+					ExecuteResult: result,
+					ResultType:    execTask.ResultType,
+					Duration:      time.Since(start),
+				}
+			}(task)
+		}
 	}
 }
 
@@ -71,10 +79,10 @@ type TCP_IPCapturer struct {
 	Handler func(context.Context, map[string][]string, chan<- *handler.TCP_IP_Handler)
 }
 
-func NewTCP_IPCapturer() *TCP_IPCapturer {
+func NewTCP_IPCapturer(ctx context.Context) *TCP_IPCapturer {
 	return &TCP_IPCapturer{
 		Rules: make(map[string][]string),
-		Ctx:   context.Background(),
+		Ctx:   ctx,
 	}
 }
 
@@ -82,58 +90,12 @@ func (capturer *TCP_IPCapturer) Conn() {
 	capturer.Handler = handler.StartTCPIPHandler
 }
 
-func (capturer *TCP_IPCapturer) Serve(signal chan struct{}, observer chan *TCP_IPCapturer) {
-
-}
-
-func Prototype() {
-	ctx := context.Background()
-	redisService := NewRedisService()
-	redisService.Conn()
-	task := func(rdb *redis.Client) (interface{}, error) {
-		result, err := rdb.HSet(ctx, "traceid:1234", "SrcIP", "192.168.176.1").Result()
-		return result, err
-	}
-
-	taskPeriod := &AssignTask{
-		Task: func(rdb *redis.Client) (interface{}, error) {
-			result, err := rdb.HGetAll(ctx, "traceid:1234").Result()
-			return result, err
-		},
-		ResultType: "map[string]string",
-	}
-
-	taskCh := make(chan *AssignTask, 10)
-	notifyCh := make(chan *NotifyMsg, 10)
-	go redisService.Serve(taskCh, notifyCh)
-	var waitGroup sync.WaitGroup
-
-	taskCh <- &AssignTask{
-		Task:       task,
-		ResultType: "int64",
-	}
-	waitGroup.Add(1)
-	waitGroup.Add(5) // 5 period task
+func (capturer *TCP_IPCapturer) Serve(observer chan<- *handler.TCP_IP_Handler) {
+	ctx, cancel := context.WithCancel(capturer.Ctx)
+	defer cancel()
 	go func() {
-		for {
-			// Task Assigner
-			<-time.After(time.Second * 5)
-			taskCh <- taskPeriod
-		}
+		capturer.Handler(ctx, capturer.Rules, observer)
+		// if everything goes well, it will not reach the block below
+		cancel()
 	}()
-
-	go func() {
-		for feedBack := range notifyCh {
-			switch feedBack.ResultType {
-			case "int64":
-				fmt.Printf("Result:%v ExecuteTime:%v ErrorMsg:%v\n",
-					feedBack.ExecuteResult.(int64), feedBack.Duration, feedBack.ErrorMsg)
-			case "map[string]string":
-				fmt.Printf("Result:%v ExecuteTime:%v ErrorMsg:%v\n",
-					feedBack.ExecuteResult.(map[string]string), feedBack.Duration, feedBack.ErrorMsg)
-			}
-			waitGroup.Done()
-		}
-	}()
-	waitGroup.Wait()
 }

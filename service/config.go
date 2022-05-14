@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -62,16 +63,22 @@ func (redisService *RedisService) MakeNewRedisOptions() {
 		Password:        redisConfig.Password,
 		DB:              redisConfig.Db,
 	}
+	logrus.Debug("In MakeNewRedisOptions:66 RedisConfig:%v", redisConfig)
 }
 
 func (capturer *TCP_IPCapturer) MakeNewRules() {
 	filterRules := extractPacketFilterConfig()
+	logrus.Debug("In MakeNewRules:77 FilterRules:%v", filterRules)
 	rules := make(map[string][]string)
 	v := reflect.ValueOf(filterRules).Elem()
 	for i := 0; i < v.NumField(); i++ {
+		if v.Field(i).Len() == 0 {
+			continue
+		}
 		rules[v.Type().Field(i).Name] = v.Field(i).Interface().(stringList)
 	}
 	capturer.Rules = rules
+	logrus.Debug("In MakeNewRules:77 Rules:%v", rules)
 }
 
 func extractRedisConfig() *RedisConfig {
