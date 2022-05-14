@@ -19,7 +19,6 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/p1nant0m/xdp-tracing/handler"
 	"github.com/p1nant0m/xdp-tracing/service"
-	"github.com/p1nant0m/xdp-tracing/service/rest"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -88,26 +87,32 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 	}
 
 	// Startup Redis Service
-	redisTaskCh, redisNotifyCh := startRedisComponet(ctx)
+	redisService := startRedisComponet(ctx)
 
 	// StartUp Packets Capture
 	observeCh := startPacketsCap(ctx)
 
 	// Making Data Flow From local Capturer to remote RedisDB
-	streamFlow_Cap2Rdb(ctx, redisTaskCh, redisNotifyCh, observeCh)
+	redisService.Register("capturer") // capturer need to use Redis Service, so it need to regist first
+	streamFlow_Cap2Rdb(ctx, redisService, observeCh)
 
-	// Start Rest Server
-	rest.RestServe(ctx)
+	// // Start Rest Server
+	// ginCtx := context.WithValue(ctx, "redis-taskCh", redisTaskCh)
+	// rest.RestServe(ginCtx)
 	<-ctx.Done()
 }
 
 // streamFlow_Cap2Rdb make data flow from local capturer to Redis
-func streamFlow_Cap2Rdb(ctx context.Context, redisTaskCh chan<- *service.AssignTask,
-	redisNotifyCh <-chan *service.NotifyMsg, packetCh <-chan *handler.TCP_IP_Handler) {
+func streamFlow_Cap2Rdb(ctx context.Context,
+	redisService *service.RedisService, packetCh <-chan *handler.TCP_IP_Handler) {
+	redisNotifyCh, err := redisService.RetrieveChannel("capturer")
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
 
 	// this Goroutine handles the response from Redis via redisNotifyCh
 	go func() {
-		logrus.Debug("Goroutine handles the response from Redis via redisNotifyCh")
 		for notifyMsg := range redisNotifyCh {
 			select {
 			case <-ctx.Done():
@@ -122,7 +127,6 @@ func streamFlow_Cap2Rdb(ctx context.Context, redisTaskCh chan<- *service.AssignT
 
 	// this Goroutine Records the new filtered Packets to Redis
 	go func() {
-		logrus.Debug("this Goroutine Records the new filtered Packets to Redis")
 		for packet := range packetCh {
 			select {
 			case <-ctx.Done():
@@ -131,7 +135,8 @@ func streamFlow_Cap2Rdb(ctx context.Context, redisTaskCh chan<- *service.AssignT
 				logrus.Debug("new packet arrives Packets:%v", packet)
 				// packet that satisfied the rules arrive,
 				// new task should be assgined to Redis Client
-				redisTaskCh <- newRecordTask(ctx, packet)
+				taskFunc, resultType := newRecordTask(ctx, packet)
+				redisService.TaskAssign(taskFunc, resultType, "capturer")
 			}
 		}
 	}()
@@ -153,7 +158,7 @@ type Value struct {
 }
 
 // newRecordTask construct the Redis Task to make record of arriving packet
-func newRecordTask(ctx context.Context, packet *handler.TCP_IP_Handler) *service.AssignTask {
+func newRecordTask(ctx context.Context, packet *handler.TCP_IP_Handler) (func(rdb *redis.Client) (interface{}, error), string) {
 	key := &Key{
 		SrcIP:   packet.SrcIP,
 		DstIP:   packet.DstIP,
@@ -191,23 +196,15 @@ func newRecordTask(ctx context.Context, packet *handler.TCP_IP_Handler) *service
 		return cmds, err
 	}
 
-	return &service.AssignTask{
-		Task:       taskFunc,
-		ResultType: "[]redis.Cmder",
-	}
+	return taskFunc, "[]redis.Cmder"
 
 }
 
 // handleRespFromRdb process the response from Redis Server after we submit the Task to the
 // server
 func handleRespFromRdb(resp *service.NotifyMsg) {
-	switch resp.ResultType {
-	case "[]redis.Cmder":
-		result := resp.ExecuteResult.([]redis.Cmder)
-		fmt.Print(result)
-	default:
-	}
-
+	// fmt.Printf("Client:%v Duration:%v ErrorMsg:%v ExecuteReuslt:%v ResultType:%v", resp.Client, resp.Duration, resp.ErrorMsg,
+	// 	resp.ExecuteResult, resp.ResultType)
 }
 
 func startPacketsCap(ctx context.Context) <-chan *handler.TCP_IP_Handler {
@@ -222,13 +219,12 @@ func startPacketsCap(ctx context.Context) <-chan *handler.TCP_IP_Handler {
 	return observeCh
 }
 
-func startRedisComponet(ctx context.Context) (chan<- *service.AssignTask, <-chan *service.NotifyMsg) {
+func startRedisComponet(ctx context.Context) *service.RedisService {
 	// Setup Redis Service
 	var redisServe service.Service = service.NewRedisService(ctx)
-	redisServe.Conn()
 
-	taskCh := make(chan *service.AssignTask, 10)
-	notifyCh := make(chan *service.NotifyMsg, 10)
-	go redisServe.Serve(taskCh, notifyCh)
-	return taskCh, notifyCh
+	redisServe.Conn()
+	go redisServe.Serve()
+
+	return redisServe.(*service.RedisService)
 }
