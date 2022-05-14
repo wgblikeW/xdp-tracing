@@ -224,7 +224,6 @@ var support_rules_field = []string{"SrcIP", "DstIP", "SrcPort", "DstPort"}
 
 // Filter Should be called after TCP_IP_Handler Struct is fully constructed(call Handle())
 func (handler *TCP_IP_Handler) Filter(rules map[string][]uint32) PacketStatus {
-	flag := 1 // Determine the packet whether is satisfied with the rules
 	for _, field := range support_rules_field {
 		if uint32List, ok := rules[field]; ok {
 			v := reflect.ValueOf(handler).Elem().FieldByName(field)
@@ -232,12 +231,8 @@ func (handler *TCP_IP_Handler) Filter(rules map[string][]uint32) PacketStatus {
 				// Empty rule
 				continue
 			}
-			flag &= find(uint32List, &v)
+			return PacketStatus(find(uint32List, &v))
 		}
-	}
-	if flag == 1 {
-		// All Rules Match
-		return PASS
 	}
 	return DROP
 }
