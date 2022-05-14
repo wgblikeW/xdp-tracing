@@ -46,6 +46,8 @@ type RedisConfig struct {
 	MinRetryBackoff time.Duration `yaml:"minRetryBackoff"`
 }
 
+// MakeNewRedisOptions read rules from given config file and parse it into
+// Options field
 func (redisService *RedisService) MakeNewRedisOptions() {
 	redisConfig := extractRedisConfig()
 
@@ -63,9 +65,10 @@ func (redisService *RedisService) MakeNewRedisOptions() {
 		Password:        redisConfig.Password,
 		DB:              redisConfig.Db,
 	}
-	logrus.Debug("In MakeNewRedisOptions:66 RedisConfig:%v", redisConfig)
 }
 
+// MakeNewRules read rules from given config file and parse it into
+// Rules field
 func (capturer *TCP_IPCapturer) MakeNewRules() {
 	filterRules := extractPacketFilterConfig()
 	logrus.Debug("In MakeNewRules:77 FilterRules:%v", filterRules)
@@ -78,7 +81,6 @@ func (capturer *TCP_IPCapturer) MakeNewRules() {
 		rules[v.Type().Field(i).Name] = v.Field(i).Interface().(stringList)
 	}
 	capturer.Rules = rules
-	logrus.Debug("In MakeNewRules:77 Rules:%v", rules)
 }
 
 func extractRedisConfig() *RedisConfig {

@@ -47,6 +47,9 @@ func NewRedisService(ctx context.Context) *RedisService {
 	return redisService
 }
 
+// Serve starts a goroutine to receive "Redis Command Task" from task channel
+// and submit the task to the redis Client. The reply from the redis server will
+// be warpped and the Task producer will be informed via notify Channel
 func (redisService *RedisService) Serve(taskCh <-chan *AssignTask, notifyCh chan<- *NotifyMsg) {
 	logrus.Debug("In redisService.Serve:51")
 	for task := range taskCh {
