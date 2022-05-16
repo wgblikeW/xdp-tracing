@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -13,10 +14,6 @@ import (
 
 const (
 	REDIS_GET_COMM = iota
-)
-
-const (
-	CLIENT_NAME_REST = "rest"
 )
 
 func RestServe(ctx context.Context) {
@@ -37,30 +34,40 @@ func RestServe(ctx context.Context) {
 
 func execRedisCommGET(redisService *service.RedisService) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
+		ctx, cancel := context.WithDeadline(context.TODO(), time.Now().Add(time.Second*3))
+		defer cancel()
 		key := c.Param("key")
 		uuID := uuid.New().String()
 		redisService.Register(uuID)
 		defer redisService.Destory(uuID)
 		notifyCh, _ := redisService.RetrieveChannel(uuID)
 		task := func(rdb *redis.Client) (interface{}, error) {
-			value, err := rdb.Get(c, key).Result()
+			value, err := rdb.Get(ctx, key).Result()
 			return value, err
 		}
 		ResultType := "string"
-		redisService.TaskAssign(task, ResultType, "RedisGet")
-		notifyMsg := <-notifyCh
-		if notifyMsg.ErrorMsg != nil {
+		redisService.TaskAssign(task, ResultType, uuID)
+
+		select {
+		case notifyMsg := <-notifyCh:
+			if notifyMsg.ErrorMsg != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error": notifyMsg.ErrorMsg,
+				})
+			} else {
+				c.JSON(http.StatusOK, gin.H{
+					"Duration":      notifyMsg.Duration,
+					"ResultType":    notifyMsg.ResultType,
+					"Client":        notifyMsg.Client,
+					"ExecuteResult": notifyMsg.ExecuteResult.(string),
+				})
+			}
+		case <-ctx.Done():
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": notifyMsg.ErrorMsg,
-			})
-		} else {
-			c.JSON(http.StatusOK, gin.H{
-				"Duration":      notifyMsg.Duration,
-				"ResultType":    notifyMsg.ResultType,
-				"Client":        notifyMsg.Client,
-				"ExecuteResult": notifyMsg.ExecuteResult.(string),
+				"error": "timeout happens when quering redisDB",
 			})
 		}
+
 	}
 	return fn
 }
