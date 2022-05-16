@@ -85,7 +85,13 @@ func preparegetSessionPackets(redisService *service.RedisService) (fn gin.Handle
 						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 						return
 					} else {
-						value_list = append(value_list, packet)
+						if packet.PayloadExist {
+							value_list = append(value_list, packet)
+						} else {
+							packet.Payload = nil
+							value_list = append(value_list, packet)
+						}
+
 					}
 				}
 				c.JSON(http.StatusOK, gin.H{"packets": value_list})
