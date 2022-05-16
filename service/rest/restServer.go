@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -35,8 +36,13 @@ func RestServe(ctx context.Context) {
 	}
 }
 
-func preparegetAllSessionHandler(redisService *service.RedisService) gin.HandlerFunc {
-	fn := func(c *gin.Context) {
+type lookup struct {
+	Key *service.Key
+	ID  string
+}
+
+func preparegetAllSessionHandler(redisService *service.RedisService) (fn gin.HandlerFunc) {
+	fn = func(c *gin.Context) {
 		ctx, cancel := context.WithDeadline(context.TODO(), time.Now().Add(REDIS_QUERY_TIMEOUT))
 		defer cancel()
 
@@ -58,7 +64,7 @@ func preparegetAllSessionHandler(redisService *service.RedisService) gin.Handler
 					"error": "capturer has not captured any packet yet",
 				})
 			} else {
-				var key_list []*service.Key
+				var key_list []*lookup
 				if notifyMsg.ResultType != "[]string" {
 					c.JSON(http.StatusInternalServerError, gin.H{
 						"error": fmt.Sprintf("inconsitency between expeted Type []string and received Type %v", notifyMsg.ResultType),
@@ -67,7 +73,10 @@ func preparegetAllSessionHandler(redisService *service.RedisService) gin.Handler
 				sessionList := notifyMsg.ExecuteResult.([]string)
 				for _, session := range sessionList {
 					key := service.DecodeKey(session)
-					key_list = append(key_list, key)
+					key_list = append(key_list, &lookup{
+						Key: key,
+						ID:  base64.StdEncoding.EncodeToString([]byte(session)),
+					})
 				}
 				c.JSON(http.StatusOK, gin.H{"sessions": key_list})
 			}
@@ -77,12 +86,12 @@ func preparegetAllSessionHandler(redisService *service.RedisService) gin.Handler
 			})
 		}
 	}
-	return fn
+	return
 }
 
 // template handler for redis querying
-func prepareRedisGetHandler(redisService *service.RedisService) gin.HandlerFunc {
-	fn := func(c *gin.Context) {
+func prepareRedisGetHandler(redisService *service.RedisService) (fn gin.HandlerFunc) {
+	fn = func(c *gin.Context) {
 		ctx, cancel := context.WithDeadline(context.TODO(), time.Now().Add(REDIS_QUERY_TIMEOUT))
 		defer cancel()
 
@@ -119,5 +128,5 @@ func prepareRedisGetHandler(redisService *service.RedisService) gin.HandlerFunc 
 		}
 
 	}
-	return fn
+	return
 }

@@ -192,7 +192,7 @@ func (handler *TCP_IP_Handler) Handle(packet gopacket.Packet) error {
 		handler.PayloadExist = false
 	}
 
-	handler.Timestamp = time.Now().Format("2006-01-02 15:04:05.999999999")
+	handler.Timestamp = time.Now().Format("2006-01-02 15:04:05.9999999999")
 
 	return nil
 }
