@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -20,11 +21,13 @@ const (
 	ENABLE_PRODUCTION   = true
 )
 
+var localIPv4 string
+
 func RestServe(ctx context.Context) {
 	if ENABLE_PRODUCTION {
 		gin.SetMode(gin.ReleaseMode)
 	}
-
+	localIPv4 = localIPObtain()
 	redisService := ctx.Value("redis-service").(*service.RedisService)
 	RedisCommGetHandler := prepareRedisGetHandler(redisService)
 	getAllSessionHandler := preparegetAllSessionHandler(redisService)
@@ -81,8 +84,7 @@ func preparegetSessionPackets(redisService *service.RedisService) (fn gin.Handle
 					"error": "capturer has not captured any packet yet",
 				})
 			} else {
-				var value_list []*service.Value
-				var timeStampList []float64
+				var value_list []interface{}
 				if notifyMsg.ResultType != "[]redis.Z" {
 					c.JSON(http.StatusInternalServerError, gin.H{
 						"error": fmt.Sprintf("inconsitency between expeted Type []redis.Z and received Type %v", notifyMsg.ResultType),
@@ -95,17 +97,16 @@ func preparegetSessionPackets(redisService *service.RedisService) (fn gin.Handle
 						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 						return
 					} else {
-						timeStampList = append(timeStampList, session.Score)
-						if packet.PayloadExist {
-							value_list = append(value_list, packet)
-						} else {
+						if !packet.PayloadExist {
 							packet.Payload = nil
-							value_list = append(value_list, packet)
 						}
-
+						value_list = append(value_list, struct {
+							*service.Value
+							Timestamp float64
+						}{packet, session.Score})
 					}
 				}
-				c.JSON(http.StatusOK, gin.H{"packets": value_list, "timestamp": timeStampList})
+				c.JSON(http.StatusOK, gin.H{"packets": value_list})
 			}
 		case <-ctx.Done():
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -209,4 +210,21 @@ func prepareRedisGetHandler(redisService *service.RedisService) (fn gin.HandlerF
 
 	}
 	return
+}
+
+func localIPObtain() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
 }
