@@ -5,6 +5,15 @@ import (
 	"encoding/binary"
 )
 
+const (
+	FONT_SETTINGS_PREFIX = "\033[1;42;37m"
+	FONT_SETTINGS_SUFFIX = "\033[0m"
+)
+
+func FontSet(str string) string {
+	return FONT_SETTINGS_PREFIX + str + FONT_SETTINGS_SUFFIX
+}
+
 func UInt32ToBytes(n uint32) []byte {
 	data := n
 	bytebuf := bytes.NewBuffer([]byte{})

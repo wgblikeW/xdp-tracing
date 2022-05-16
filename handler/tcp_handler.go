@@ -268,7 +268,7 @@ func StartTCPIPHandler(ctx context.Context, rules map[string][]string, observerC
 		fmt.Println("Error: " + err.Error())
 		return
 	}
-	fmt.Println("Listening on Raw Socket")
+	fmt.Println("😁 " + utils.FontSet("Capturer is listening on Raw Socket"))
 	defer syscall.Close(fd)
 	tcpHandler := NewTCPIPHandler()
 	buf := make([]byte, 4096)
