@@ -66,6 +66,15 @@ func preparegetSessionPackets(redisService *service.RedisService) (fn gin.Handle
 			return
 		}
 
+		var direction string
+		kk := service.DecodeKey(string(key))
+		if kk.DstIP.To4().String() == localIPv4 {
+			// Ingress
+			direction = "Ingress"
+		} else {
+			direction = "Egress"
+		}
+
 		task := func(rdb *redis.Client) (interface{}, error) {
 			value, err := rdb.ZRangeArgsWithScores(ctx, redis.ZRangeArgs{
 				Key:   string(key),
@@ -102,8 +111,10 @@ func preparegetSessionPackets(redisService *service.RedisService) (fn gin.Handle
 						}
 						value_list = append(value_list, struct {
 							*service.Value
+							*service.Key
 							Timestamp float64
-						}{packet, session.Score})
+							Direction string
+						}{packet, kk, session.Score, direction})
 					}
 				}
 				c.JSON(http.StatusOK, gin.H{"packets": value_list})
