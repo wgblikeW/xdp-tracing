@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -13,7 +14,8 @@ import (
 )
 
 const (
-	REDIS_GET_COMM = iota
+	REDIS_GET_COMM      = iota
+	REDIS_QUERY_TIMEOUT = time.Second * 3
 )
 
 func RestServe(ctx context.Context) {
@@ -21,7 +23,7 @@ func RestServe(ctx context.Context) {
 	redisService := ctx.Value("redis-service").(*service.RedisService)
 	RedisCommGetHandler := execRedisCommGET(redisService)
 	r := gin.Default()
-	r.GET("/redis/get/:key", RedisCommGetHandler)
+	r.GET("test/redis/get/:key", RedisCommGetHandler)
 
 	go r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 
@@ -34,8 +36,9 @@ func RestServe(ctx context.Context) {
 
 func execRedisCommGET(redisService *service.RedisService) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
-		ctx, cancel := context.WithDeadline(context.TODO(), time.Now().Add(time.Second*3))
+		ctx, cancel := context.WithDeadline(context.TODO(), time.Now().Add(REDIS_QUERY_TIMEOUT))
 		defer cancel()
+
 		key := c.Param("key")
 		uuID := uuid.New().String()
 		redisService.Register(uuID)
@@ -50,9 +53,9 @@ func execRedisCommGET(redisService *service.RedisService) gin.HandlerFunc {
 
 		select {
 		case notifyMsg := <-notifyCh:
-			if notifyMsg.ErrorMsg != nil {
+			if notifyMsg.ErrorMsg == redis.Nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
-					"error": notifyMsg.ErrorMsg,
+					"error": fmt.Sprintf("no related value to the key %v", key),
 				})
 			} else {
 				c.JSON(http.StatusOK, gin.H{

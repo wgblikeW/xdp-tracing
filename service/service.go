@@ -67,6 +67,7 @@ func (redisService *RedisService) Register(client string) {
 }
 
 func (redisService *RedisService) Destory(client string) {
+	close(redisService.sClients[client])
 	delete(redisService.sClients, client)
 }
 
