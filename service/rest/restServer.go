@@ -17,9 +17,13 @@ import (
 const (
 	REDIS_GET_COMM      = iota
 	REDIS_QUERY_TIMEOUT = time.Second * 3
+	ENABLE_PRODUCTION   = true
 )
 
 func RestServe(ctx context.Context) {
+	if ENABLE_PRODUCTION {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	redisService := ctx.Value("redis-service").(*service.RedisService)
 	RedisCommGetHandler := prepareRedisGetHandler(redisService)
@@ -60,10 +64,14 @@ func preparegetSessionPackets(redisService *service.RedisService) (fn gin.Handle
 		}
 
 		task := func(rdb *redis.Client) (interface{}, error) {
-			value, err := rdb.ZRange(ctx, string(key), 0, -1).Result()
+			value, err := rdb.ZRangeArgsWithScores(ctx, redis.ZRangeArgs{
+				Key:   string(key),
+				Start: 0,
+				Stop:  -1,
+			}).Result()
 			return value, err
 		}
-		ResultType := "[]string"
+		ResultType := "[]redis.Z"
 		redisService.TaskAssign(task, ResultType, uuID)
 
 		select {
@@ -74,17 +82,20 @@ func preparegetSessionPackets(redisService *service.RedisService) (fn gin.Handle
 				})
 			} else {
 				var value_list []*service.Value
-				if notifyMsg.ResultType != "[]string" {
+				var timeStampList []float64
+				if notifyMsg.ResultType != "[]redis.Z" {
 					c.JSON(http.StatusInternalServerError, gin.H{
-						"error": fmt.Sprintf("inconsitency between expeted Type []string and received Type %v", notifyMsg.ResultType),
+						"error": fmt.Sprintf("inconsitency between expeted Type []redis.Z and received Type %v", notifyMsg.ResultType),
 					})
 				}
-				packetList := notifyMsg.ExecuteResult.([]string)
-				for _, session := range packetList {
-					if packet, err := service.DecodeValue(session); err != nil {
+
+				ZList := notifyMsg.ExecuteResult.([]redis.Z)
+				for _, session := range ZList {
+					if packet, err := service.DecodeValue(session.Member.(string)); err != nil {
 						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 						return
 					} else {
+						timeStampList = append(timeStampList, session.Score)
 						if packet.PayloadExist {
 							value_list = append(value_list, packet)
 						} else {
@@ -94,7 +105,7 @@ func preparegetSessionPackets(redisService *service.RedisService) (fn gin.Handle
 
 					}
 				}
-				c.JSON(http.StatusOK, gin.H{"packets": value_list})
+				c.JSON(http.StatusOK, gin.H{"packets": value_list, "timestamp": timeStampList})
 			}
 		case <-ctx.Done():
 			c.JSON(http.StatusInternalServerError, gin.H{
