@@ -21,7 +21,7 @@ const (
 func RestServe(ctx context.Context) {
 
 	redisService := ctx.Value("redis-service").(*service.RedisService)
-	RedisCommGetHandler := execRedisCommGET(redisService)
+	RedisCommGetHandler := prepareRedisGetHandler(redisService)
 	r := gin.Default()
 	r.GET("test/redis/get/:key", RedisCommGetHandler)
 
@@ -34,7 +34,8 @@ func RestServe(ctx context.Context) {
 	}
 }
 
-func execRedisCommGET(redisService *service.RedisService) gin.HandlerFunc {
+// template handler for redis querying
+func prepareRedisGetHandler(redisService *service.RedisService) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		ctx, cancel := context.WithDeadline(context.TODO(), time.Now().Add(REDIS_QUERY_TIMEOUT))
 		defer cancel()

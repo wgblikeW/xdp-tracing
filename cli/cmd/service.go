@@ -191,7 +191,7 @@ func newRecordTask(ctx context.Context, packet *handler.TCP_IP_Handler) (func(rd
 	taskFunc := func(rdb *redis.Client) (interface{}, error) {
 		cmds, err := rdb.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 			pipe.ZAdd(ctx, keyS, &redis.Z{Score: timeF, Member: valueS})
-			pipe.LPush(ctx, "packet:tcpip", keyS)
+			pipe.SAdd(ctx, "packet:tcpip", keyS)
 			return nil
 		})
 		return cmds, err
