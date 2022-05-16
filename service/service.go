@@ -183,13 +183,13 @@ func DecodeKey(keySerdString string) *Key {
 
 func DecodeValue(valueSerdString string) (*Value, error) {
 	var buf bytes.Buffer
-	value := &Value{}
+	var value Value
 	dec := gob.NewDecoder(&buf)
 	buf.WriteString(valueSerdString)
-	if err := dec.Decode(value); err != nil {
+	if err := dec.Decode(&value); err != nil {
 		return nil, err
 	}
-	return value, nil
+	return &value, nil
 }
 
 func DecodeSession(keySerdString string, valueSerdString string) (*Key, *Value) {
@@ -207,11 +207,20 @@ func DecodeSession(keySerdString string, valueSerdString string) (*Key, *Value) 
 func EncodeSession(key *Key, value *Value) (string, string) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	enc.Encode(key)
+	err := enc.Encode(key)
+	if err != nil {
+		panic(err.Error())
+	}
 	keyString := buf.String()
 
-	enc.Encode(value)
+	buf.Reset()
+
+	err = enc.Encode(value)
+	if err != nil {
+		panic(err.Error())
+	}
 	valueString := buf.String()
+
 	return keyString, valueString
 }
 
