@@ -98,7 +98,7 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 	ginCtx := context.WithValue(ctx, "redis-service", redisService)
 	rest.RestServe(ginCtx)
 
-	fmt.Println("🥳 " + utils.FontSet("All Services Start successfully! Enjoy your Days"))
+	fmt.Println("🥳 " + utils.FontSet("All Services Start successfully! Enjoy your Days!"))
 	<-ctx.Done()
 }
 
