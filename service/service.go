@@ -181,13 +181,15 @@ func DecodeKey(keySerdString string) *Key {
 	return key
 }
 
-func DecodeValue(valueSerdString string) *Value {
+func DecodeValue(valueSerdString string) (*Value, error) {
 	var buf bytes.Buffer
 	value := &Value{}
 	dec := gob.NewDecoder(&buf)
 	buf.WriteString(valueSerdString)
-	dec.Decode(value)
-	return value
+	if err := dec.Decode(value); err != nil {
+		return nil, err
+	}
+	return value, nil
 }
 
 func DecodeSession(keySerdString string, valueSerdString string) (*Key, *Value) {
