@@ -19,6 +19,7 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/p1nant0m/xdp-tracing/handler"
 	"github.com/p1nant0m/xdp-tracing/service"
+	"github.com/p1nant0m/xdp-tracing/service/rest"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -96,9 +97,9 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 	redisService.Register("capturer") // capturer need to use Redis Service, so it need to regist first
 	streamFlow_Cap2Rdb(ctx, redisService, observeCh)
 
-	// // Start Rest Server
-	// ginCtx := context.WithValue(ctx, "redis-taskCh", redisTaskCh)
-	// rest.RestServe(ginCtx)
+	// Start Rest Server
+	ginCtx := context.WithValue(ctx, "redis-service", redisService)
+	rest.RestServe(ginCtx)
 	<-ctx.Done()
 }
 

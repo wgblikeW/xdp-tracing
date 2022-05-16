@@ -66,6 +66,10 @@ func (redisService *RedisService) Register(client string) {
 	redisService.sClients[client] = ticket
 }
 
+func (redisService *RedisService) Destory(client string) {
+	delete(redisService.sClients, client)
+}
+
 func (redisService *RedisService) RetrieveChannel(client string) (<-chan *NotifyMsg, error) {
 	ch, ok := redisService.sClients[client]
 	if !ok {
