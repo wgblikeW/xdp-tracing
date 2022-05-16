@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
+	"github.com/p1nant0m/xdp-tracing/handler/utils"
 	"github.com/p1nant0m/xdp-tracing/service"
 )
 
@@ -41,7 +42,7 @@ func RestServe(ctx context.Context) {
 	r.GET("get/all/session", getAllSessionHandler)
 	r.GET("get/session/:key", getSessionPackets)
 	go r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
-
+	fmt.Println("🥳 " + utils.FontSet("Go Gin RESTFUL API Server Start Successfully!"))
 	select {
 	case <-ctx.Done():
 		os.Exit(0)

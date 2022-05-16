@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/p1nant0m/xdp-tracing/handler"
+	"github.com/p1nant0m/xdp-tracing/handler/utils"
 	"github.com/p1nant0m/xdp-tracing/service"
 	"github.com/p1nant0m/xdp-tracing/service/rest"
 	"github.com/sirupsen/logrus"
@@ -96,6 +97,8 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 	// Start Rest Server
 	ginCtx := context.WithValue(ctx, "redis-service", redisService)
 	rest.RestServe(ginCtx)
+
+	fmt.Println("🥳 " + utils.FontSet("All Services Start successfully! Enjoy your Days"))
 	<-ctx.Done()
 }
 

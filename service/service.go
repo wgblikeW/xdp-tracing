@@ -5,12 +5,14 @@ import (
 	"context"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/google/gopacket/layers"
 	"github.com/p1nant0m/xdp-tracing/handler"
+	"github.com/p1nant0m/xdp-tracing/handler/utils"
 )
 
 type Service interface {
@@ -87,6 +89,7 @@ func (redisService *RedisService) RetrieveChannel(client string) (<-chan *Notify
 // and submit the task to the redis Client. The reply from the redis server will
 // be warpped and the Task producer will be informed via notify Channel
 func (redisService *RedisService) Serve() {
+	fmt.Println("🥳 " + utils.FontSet("Redis Service Start Successfully!"))
 	go redisService.responseHandler()
 	for task := range redisService.TaskCh {
 		select {
