@@ -1,11 +1,15 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"errors"
+	"net"
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/google/gopacket/layers"
 	"github.com/p1nant0m/xdp-tracing/handler"
 )
 
@@ -152,6 +156,61 @@ func (capturer *TCP_IPCapturer) Serve(observer chan<- *handler.TCP_IP_Handler) {
 		capturer.Handler(capturer.Ctx, capturer.Rules, observer)
 		// if everything goes well, it will not reach the block below
 	}()
+}
+
+type Key struct {
+	SrcIP   net.IP
+	DstIP   net.IP
+	SrcPort layers.TCPPort
+	DstPort layers.TCPPort
+}
+
+type Value struct {
+	TTL          uint8
+	TcpFlagS     string
+	PayloadExist bool
+	*handler.PayloadMeta
+}
+
+func DecodeKey(keySerdString string) *Key {
+	var buf bytes.Buffer
+	key := &Key{}
+	dec := gob.NewDecoder(&buf)
+	buf.WriteString(keySerdString)
+	dec.Decode(key)
+	return key
+}
+
+func DecodeValue(valueSerdString string) *Value {
+	var buf bytes.Buffer
+	value := &Value{}
+	dec := gob.NewDecoder(&buf)
+	buf.WriteString(valueSerdString)
+	dec.Decode(value)
+	return value
+}
+
+func DecodeSession(keySerdString string, valueSerdString string) (*Key, *Value) {
+	var buf bytes.Buffer
+	key, value := &Key{}, &Value{}
+	dec := gob.NewDecoder(&buf)
+	buf.WriteString(keySerdString)
+	dec.Decode(key)
+
+	buf.WriteString(valueSerdString)
+	dec.Decode(value)
+	return key, value
+}
+
+func EncodeSession(key *Key, value *Value) (string, string) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	enc.Encode(key)
+	keyString := buf.String()
+
+	enc.Encode(value)
+	valueString := buf.String()
+	return keyString, valueString
 }
 
 //---------------------------------------------------- TCP_IPCapturer ------------------------------

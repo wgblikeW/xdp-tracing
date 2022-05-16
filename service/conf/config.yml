@@ -5,9 +5,9 @@ redisdb:
   poolsize: 10
 
 packetfilter:
-  dstport: 
-    - 1080
   srcport:
+    - 1080
+  dstport:
     - 1080
 
   

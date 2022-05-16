@@ -204,7 +204,7 @@ func find(uint32List []uint32, elem *reflect.Value) int {
 		for _, port := range uint32List {
 			if (uint16)(port) == (uint16)(elem.Interface().(layers.TCPPort)) {
 				// Match the Rules, access the packet
-				logrus.Debug("Port Match Port:%v", port)
+				logrus.Debugf("Port Match Port:%v", port)
 				return PASS
 			}
 		}
@@ -224,6 +224,7 @@ var support_rules_field = []string{"SrcIP", "DstIP", "SrcPort", "DstPort"}
 
 // Filter Should be called after TCP_IP_Handler Struct is fully constructed(call Handle())
 func (handler *TCP_IP_Handler) Filter(rules map[string][]uint32) PacketStatus {
+	flag := 0
 	for _, field := range support_rules_field {
 		if uint32List, ok := rules[field]; ok {
 			v := reflect.ValueOf(handler).Elem().FieldByName(field)
@@ -231,9 +232,14 @@ func (handler *TCP_IP_Handler) Filter(rules map[string][]uint32) PacketStatus {
 				// Empty rule
 				continue
 			}
-			return PacketStatus(find(uint32List, &v))
+			flag |= find(uint32List, &v) // It can pass as it matches one of the rules
 		}
 	}
+
+	if flag == 1 {
+		return PASS
+	}
+
 	return DROP
 }
 

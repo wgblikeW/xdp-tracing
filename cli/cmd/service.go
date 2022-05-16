@@ -5,18 +5,14 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/google/gopacket/layers"
 	"github.com/p1nant0m/xdp-tracing/handler"
 	"github.com/p1nant0m/xdp-tracing/service"
 	"github.com/p1nant0m/xdp-tracing/service/rest"
@@ -144,45 +140,24 @@ func streamFlow_Cap2Rdb(ctx context.Context,
 
 }
 
-type Key struct {
-	SrcIP   net.IP
-	DstIP   net.IP
-	SrcPort layers.TCPPort
-	DstPort layers.TCPPort
-}
-
-type Value struct {
-	TTL          uint8
-	TcpFlagS     string
-	PayloadExist bool
-	*handler.PayloadMeta
-}
-
 // newRecordTask construct the Redis Task to make record of arriving packet
 func newRecordTask(ctx context.Context, packet *handler.TCP_IP_Handler) (func(rdb *redis.Client) (interface{}, error), string) {
-	key := &Key{
+	key := &service.Key{
 		SrcIP:   packet.SrcIP,
 		DstIP:   packet.DstIP,
 		SrcPort: packet.SrcPort,
 		DstPort: packet.DstPort,
 	}
 
-	value := &Value{
+	value := &service.Value{
 		TTL:          packet.TTL,
 		TcpFlagS:     packet.TcpFlagsS,
 		PayloadExist: packet.PayloadExist,
 		PayloadMeta:  packet.PayloadMeta,
 	}
 
-	// serialize the Key struct as Sorted List Key
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	enc.Encode(*key)
-	keyS := buf.String()
-
-	// serialize the Value strcut as the store element
-	enc.Encode(*value)
-	valueS := buf.String()
+	// serialize the Key struct and Value struct
+	keyS, valueS := service.EncodeSession(key, value)
 
 	// using for sorted list score
 	timeT, _ := time.Parse("2006-01-02 15:04:05.999999999", packet.Timestamp)
