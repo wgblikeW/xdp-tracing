@@ -7,6 +7,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -98,8 +99,20 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 	ginCtx := context.WithValue(ctx, "redis-service", redisService)
 	rest.RestServe(ginCtx)
 
+	// Make Registration in ETCD
+	etcdService := startEtcdComponet(ctx)
 	fmt.Println("🥳 " + utils.FontSet("All Services Start successfully! Enjoy your Days!"))
 	<-ctx.Done()
+}
+
+func startEtcdComponet(ctx context.Context) *service.EtcdService {
+	var etcdService service.Service = service.NewEtcdService(ctx)
+	if err := etcdService.Conn(); err != nil {
+		log.Fatal(err.Error())
+	}
+
+	etcdService.Serve()
+	return etcdService.(*service.EtcdService)
 }
 
 // streamFlow_Cap2Rdb make data flow from local capturer to Redis

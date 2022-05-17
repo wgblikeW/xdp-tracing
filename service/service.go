@@ -13,10 +13,11 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/p1nant0m/xdp-tracing/handler"
 	"github.com/p1nant0m/xdp-tracing/handler/utils"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type Service interface {
-	Conn()
+	Conn() error
 	Serve()
 }
 
@@ -63,8 +64,9 @@ func NewRedisService(ctx context.Context) *RedisService {
 	return redisService
 }
 
-func (redisService *RedisService) Conn() {
+func (redisService *RedisService) Conn() error {
 	redisService.RDClient = redis.NewClient(redisService.Options)
+	return nil
 }
 
 func (redisService *RedisService) Register(client string) {
@@ -150,8 +152,9 @@ func NewTCP_IPCapturer(ctx context.Context) *TCP_IPCapturer {
 	}
 }
 
-func (capturer *TCP_IPCapturer) Conn() {
+func (capturer *TCP_IPCapturer) Conn() error {
 	capturer.Handler = handler.StartTCPIPHandler
+	return nil
 }
 
 func (capturer *TCP_IPCapturer) Serve(observer chan<- *handler.TCP_IP_Handler) {
@@ -228,3 +231,52 @@ func EncodeSession(key *Key, value *Value) (string, string) {
 }
 
 //---------------------------------------------------- TCP_IPCapturer ------------------------------
+
+//---------------------------------------------------- Etcd Service ------------------------------
+
+type EtcdService struct {
+	Ctx         context.Context
+	Client      *clientv3.Client
+	Configs     *clientv3.Config
+	ServiceType string
+}
+
+func NewEtcdService(ctx context.Context) *EtcdService {
+	etcdService := &EtcdService{
+		ServiceType: ETCD,
+		Ctx:         ctx,
+	}
+	etcdService.MakeNewEtcdOptions()
+	return etcdService
+}
+
+func (etcdService *EtcdService) MakeNewEtcdOptions() {
+	etcdConfigs := extractEtcdConfig()
+
+	etcdService.Configs = &clientv3.Config{
+		Endpoints:            etcdConfigs.EndPoints,
+		AutoSyncInterval:     etcdConfigs.AutoSyncInterval,
+		DialTimeout:          etcdConfigs.Dialtimeout,
+		DialKeepAliveTime:    etcdConfigs.DialKeepAliveTime,
+		DialKeepAliveTimeout: etcdConfigs.DialKeepAliveTimeout,
+		Username:             etcdConfigs.Username,
+		Password:             etcdConfigs.Password,
+		RejectOldCluster:     etcdConfigs.RejectOldCluster,
+		PermitWithoutStream:  etcdConfigs.PermitWithoutStream,
+	}
+}
+
+func (etcdService *EtcdService) Conn() error {
+	var err error
+	etcdService.Client, err = clientv3.New(*etcdService.Configs)
+	if err != nil {
+		return errors.New("errors occur when create new etcd client: " + err.Error())
+	}
+	return nil
+}
+
+func (etcdService *EtcdService) Serve() {
+
+}
+
+//---------------------------------------------------- Etcd Service ------------------------------
