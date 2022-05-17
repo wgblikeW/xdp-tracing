@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/p1nant0m/xdp-tracing/handler"
 	"github.com/p1nant0m/xdp-tracing/handler/utils"
+	"github.com/sirupsen/logrus"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -282,19 +282,20 @@ func (etcdService *EtcdService) Conn() error {
 // We Only use Etcd as a registry, so every node should make registration
 // when it bootstrap
 func (etcdService *EtcdService) Serve() {
-	ctx, cancel := context.WithTimeout(etcdService.Ctx, time.Second*3)
-	defer cancel()
 
-	leaseResp, _ := etcdService.Client.Lease.Grant(ctx, 60)
+	leaseResp, _ := etcdService.Client.Lease.Grant(etcdService.Ctx, 60)
 
-	etcdService.Client.Put(ctx, fmt.Sprintf("node:%v", etcdService.NodeID),
+	etcdService.Client.Put(etcdService.Ctx, fmt.Sprintf("node:%v", etcdService.NodeID),
 		utils.LocalIPObtain(), clientv3.WithLease(leaseResp.ID))
 
-	respCh, _ := etcdService.Client.Lease.KeepAlive(context.TODO(), leaseResp.ID)
+	respCh, _ := etcdService.Client.Lease.KeepAlive(etcdService.Ctx, leaseResp.ID)
 
 	go func() {
 		for resp := range respCh {
-			log.Printf("TTL:%v", resp.TTL)
+			logrus.WithFields(logrus.Fields{
+				"TTL":      resp.TTL,
+				"Revision": resp.Revision,
+			}).Info("[Etcd Service] response in KeepAlive Channel")
 		}
 	}()
 }

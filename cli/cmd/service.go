@@ -67,9 +67,9 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 
 	// Setup notifier and Make Configuration of All Services
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	watcher := make(chan os.Signal, 1)
 	signal.Notify(watcher, os.Interrupt, syscall.SIGTERM)
-	defer cancel()
 
 	go func() {
 		<-watcher
