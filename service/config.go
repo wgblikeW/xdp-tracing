@@ -16,11 +16,24 @@ const (
 type Config struct {
 	RedisDB      *RedisConfig        `yaml:"redisdb"`
 	PacketFilter *PacketFilterConfig `yaml:"packetfilter"`
+	Etcd         *EtcdConfig         `yaml:"etcd"`
 }
 
 var gConfig *Config
 
 type stringList []string
+
+type EtcdConfig struct {
+	EndPoints            stringList    `yaml:"endpoints"`
+	Dialtimeout          time.Duration `yaml:"dial-timeout"`
+	AutoSyncInterval     time.Duration `json:"auto-sync-interval"`
+	DialKeepAliveTime    time.Duration `json:"dial-keep-alive-time"`
+	DialKeepAliveTimeout time.Duration `json:"dial-keep-alive-timeout"`
+	Username             string        `json:"username"`
+	Password             string        `json:"password"`
+	RejectOldCluster     bool          `json:"reject-old-cluster"`
+	PermitWithoutStream  bool          `json:"permit-without-stream"`
+}
 
 type PacketFilterConfig struct {
 	SrcIP   stringList `yaml:"srcip"`
@@ -29,7 +42,7 @@ type PacketFilterConfig struct {
 	DstPort stringList `yaml:"dstport"`
 }
 
-// Some fields Mapping to redis.Options
+// Part of the fields in redis.Options
 type RedisConfig struct {
 	PoolFIFO        bool          `yaml:"poolFIFO"`
 	PoolSize        int           `yaml:"poolsize"`
@@ -81,6 +94,10 @@ func (capturer *TCP_IPCapturer) MakeNewRules() {
 		rules[v.Type().Field(i).Name] = v.Field(i).Interface().(stringList)
 	}
 	capturer.Rules = rules
+}
+
+func extractEtcdConfig() *EtcdConfig {
+	return gConfig.Etcd
 }
 
 func extractRedisConfig() *RedisConfig {
