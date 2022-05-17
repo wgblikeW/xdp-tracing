@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"time"
@@ -31,7 +30,7 @@ func RestServe(ctx context.Context) {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	localIPv4 = localIPObtain()
+	localIPv4 = utils.LocalIPObtain()
 	redisService := ctx.Value("redis-service").(*service.RedisService)
 
 	// Registration of Handler that we will use in the router
@@ -233,22 +232,4 @@ func preparegetAllSessionHandler(redisService *service.RedisService) (fn gin.Han
 		}
 	}
 	return
-}
-
-// localIPObtain used to obtain the IPv4 Address of the local machine
-func localIPObtain() string {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		fmt.Println(err)
-		return ""
-	}
-
-	for _, address := range addrs {
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String()
-			}
-		}
-	}
-	return ""
 }

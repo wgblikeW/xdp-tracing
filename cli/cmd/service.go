@@ -100,7 +100,7 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 	rest.RestServe(ginCtx)
 
 	// Make Registration in ETCD
-	etcdService := startEtcdComponet(ctx)
+	startEtcdComponet(ctx)
 	fmt.Println("🥳 " + utils.FontSet("All Services Start successfully! Enjoy your Days!"))
 	<-ctx.Done()
 }

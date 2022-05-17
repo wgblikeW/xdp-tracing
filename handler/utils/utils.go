@@ -3,6 +3,8 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	"net"
 )
 
 const (
@@ -30,4 +32,22 @@ func BytesToUInt32(bys []byte) uint32 {
 
 func Htons(v uint16) int {
 	return int((v << 8) | (v >> 8))
+}
+
+// localIPObtain used to obtain the IPv4 Address of the local machine
+func LocalIPObtain() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
 }

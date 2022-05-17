@@ -6,11 +6,13 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/google/gopacket/layers"
+	"github.com/google/uuid"
 	"github.com/p1nant0m/xdp-tracing/handler"
 	"github.com/p1nant0m/xdp-tracing/handler/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -238,6 +240,7 @@ type EtcdService struct {
 	Ctx         context.Context
 	Client      *clientv3.Client
 	Configs     *clientv3.Config
+	NodeID      string
 	ServiceType string
 }
 
@@ -245,6 +248,7 @@ func NewEtcdService(ctx context.Context) *EtcdService {
 	etcdService := &EtcdService{
 		ServiceType: ETCD,
 		Ctx:         ctx,
+		NodeID:      uuid.New().String(),
 	}
 	etcdService.MakeNewEtcdOptions()
 	return etcdService
@@ -275,8 +279,24 @@ func (etcdService *EtcdService) Conn() error {
 	return nil
 }
 
+// We Only use Etcd as a registry, so every node should make registration
+// when it bootstrap
 func (etcdService *EtcdService) Serve() {
+	ctx, cancel := context.WithTimeout(etcdService.Ctx, time.Second*3)
+	defer cancel()
 
+	leaseResp, _ := etcdService.Client.Lease.Grant(ctx, 60)
+
+	etcdService.Client.Put(ctx, fmt.Sprintf("node:%v", etcdService.NodeID),
+		utils.LocalIPObtain(), clientv3.WithLease(leaseResp.ID))
+
+	respCh, _ := etcdService.Client.Lease.KeepAlive(context.TODO(), leaseResp.ID)
+
+	go func() {
+		for resp := range respCh {
+			log.Printf("TTL:%v", resp.TTL)
+		}
+	}()
 }
 
 //---------------------------------------------------- Etcd Service ------------------------------
