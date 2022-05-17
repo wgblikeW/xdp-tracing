@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option go_package = "github.com/p1nant0m/xdp-tracing/strategy";
+package strategy;
+
+service Strategy {
+    rpc InstallStrategy (UpdateStrategy) returns (UpdateStrategyReply) {}
+    rpc RevokeStrategy (UpdateStrategy) returns (UpdateStrategyReply) {}
+}
+
+message UpdateStrategy {
+    bytes blockoutrules = 1;
+}
+
+message UpdateStrategyReply {
+    string status = 1;
+}
+
+// protoc --go_out=. --go_opt=paths=source_relative \
+//     --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+//     strategy.proto
