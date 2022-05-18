@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -14,8 +15,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/p1nant0m/xdp-tracing/handler"
 	"github.com/p1nant0m/xdp-tracing/handler/utils"
+	"github.com/p1nant0m/xdp-tracing/service/strategy"
 	"github.com/sirupsen/logrus"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"google.golang.org/grpc"
 )
 
 type Service interface {
@@ -301,3 +304,44 @@ func (etcdService *EtcdService) Serve() {
 }
 
 //---------------------------------------------------- Etcd Service ------------------------------
+
+//---------------------------------------------------- gRPC Service ------------------------------
+
+type GrpcService struct {
+	Ctx      context.Context
+	Configs  *GrpcConfig
+	Server   *grpc.Server
+	Listener *net.Listener
+}
+
+func NewGrpcService(ctx context.Context) *GrpcService {
+	grpcConfig := extractgRPCConfig()
+
+	return &GrpcService{
+		Ctx:     ctx,
+		Configs: grpcConfig,
+	}
+}
+
+func (grpcService *GrpcService) Conn() error {
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcService.Configs.Port))
+	if err != nil {
+		return err
+	}
+	grpcService.Listener = &listener
+	grpcService.Server = grpc.NewServer()
+	strategy.RegisterStrategyServer(grpcService.Server, &strategy.Server{})
+	logrus.Infof("[gRPC Server] server listening at %v", listener.Addr())
+
+	return nil
+}
+
+func (grpcService *GrpcService) Serve() {
+	if err := grpcService.Server.Serve(*grpcService.Listener); err != nil {
+		log.Fatalf("[gRPC Server] failed to serve: %v", err)
+	}
+}
+
+func (GrpcService *GrpcService) Stop() {
+	GrpcService.Server.Stop()
+}

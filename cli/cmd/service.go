@@ -7,7 +7,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -101,14 +100,28 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 
 	// Make Registration in ETCD
 	startEtcdComponet(ctx)
+
+	// Start gRPC Server For receiving New Policy Deployment
+	startgRPCServer(ctx)
 	fmt.Println("🥳 " + utils.FontSet("All Services Start successfully! Enjoy your Days!"))
 	<-ctx.Done()
+}
+
+func startgRPCServer(ctx context.Context) *service.GrpcService {
+	var gRPCService service.Service = service.NewGrpcService(ctx)
+	if err := gRPCService.Conn(); err != nil {
+		logrus.Fatalf("[gRPC Server] failed to listen: %v", err.Error())
+	}
+
+	go gRPCService.Serve()
+	fmt.Println("🥳 " + utils.FontSet("gRPC Service Start Successfully!"))
+	return gRPCService.(*service.GrpcService)
 }
 
 func startEtcdComponet(ctx context.Context) *service.EtcdService {
 	var etcdService service.Service = service.NewEtcdService(ctx)
 	if err := etcdService.Conn(); err != nil {
-		log.Fatal(err.Error())
+		logrus.Fatalf("[etcd Service] failed to start etcd componet err=%v", err.Error())
 	}
 
 	etcdService.Serve()

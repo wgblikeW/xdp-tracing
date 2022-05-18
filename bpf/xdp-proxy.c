@@ -6,8 +6,6 @@
 #include "headers/common_defines.h"
 #include "headers/load-bpf.h"
 #include <stdlib.h>
-/* Attach to ens33 by default */
-#define DEV_NAME "ens33"
 
 enum
 {

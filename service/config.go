@@ -17,11 +17,16 @@ type Config struct {
 	RedisDB      *RedisConfig        `yaml:"redisdb"`
 	PacketFilter *PacketFilterConfig `yaml:"packetfilter"`
 	Etcd         *EtcdConfig         `yaml:"etcd"`
+	Grpc         *GrpcConfig         `yaml:"grpc"`
 }
 
 var gConfig *Config
 
 type stringList []string
+
+type GrpcConfig struct {
+	Port int
+}
 
 type EtcdConfig struct {
 	EndPoints            stringList    `yaml:"endpoints"`
@@ -94,6 +99,10 @@ func (capturer *TCP_IPCapturer) MakeNewRules() {
 		rules[v.Type().Field(i).Name] = v.Field(i).Interface().(stringList)
 	}
 	capturer.Rules = rules
+}
+
+func extractgRPCConfig() *GrpcConfig {
+	return gConfig.Grpc
 }
 
 func extractEtcdConfig() *EtcdConfig {

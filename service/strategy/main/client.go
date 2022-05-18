@@ -7,13 +7,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/p1nant0m/xdp-tracing/strategy"
+	"github.com/p1nant0m/xdp-tracing/service/strategy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
-	addr = flag.String("addr", "localhost:50051", "the address to connect to")
+	addr = flag.String("addr", "localhost:50002", "the address to connect to")
 )
 
 func main() {

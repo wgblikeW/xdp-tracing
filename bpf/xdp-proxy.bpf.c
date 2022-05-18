@@ -13,10 +13,7 @@
 
 SEC("xdp")
 int xdp_proxy(struct xdp_md *ctx)
-{
-    /* Set up libbpf errors and debug info callback */
-   
-    
+{   
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
     __u64 nh_off = 0;
@@ -57,18 +54,16 @@ int xdp_proxy(struct xdp_md *ctx)
     }
 
     struct sock_key key = {
-        .dip = __bpf_ntohl(iph->daddr),
         .sip = __bpf_ntohl(iph->saddr),
-        /* convert to network byte order */
-        .sport = ((tcphdr->source & 0xff00) >> 8) + ((tcphdr->source & 0x00ff) << 8),
         .dport = ((tcphdr->dest & 0xff00) >> 8) + ((tcphdr->dest & 0x00ff) << 8)};
     char *payload = data + nh_off;
 
-    int ret;
-    ret = bpf_perf_event_output(ctx, &bridge, flags, &key, sizeof(key));
-    if (ret)
-        bpf_printk("perf_event_output failed: %d\n", ret);
-    return XDP_PASS;
+    if ( bpf_map_lookup_elem(&bridge, &key) == NULL) {
+        return XDP_PASS;
+    }
+
+    // bpf_map_update_elem(&bridge, &key, 0, BPF_ANY);
+    return XDP_DROP;
 }
 
 

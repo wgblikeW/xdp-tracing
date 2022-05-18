@@ -17,3 +17,5 @@ etcd:
     - "localhost:32379"
   dial-timeout: 5
   
+grpc:
+  port: 50002
