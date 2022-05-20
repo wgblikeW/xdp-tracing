@@ -6,9 +6,9 @@ redisdb:
 
 packetfilter:
   srcport:
-    - 1080
+    - 8000
   dstport:
-    - 1080
+    - 8000
 
 etcd:
   endpoints:
@@ -19,3 +19,4 @@ etcd:
   
 grpc:
   port: 50002
+  mapid: 16

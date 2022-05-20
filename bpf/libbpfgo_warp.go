@@ -10,7 +10,16 @@ import (
 	"unsafe"
 
 	"github.com/p1nant0m/xdp-tracing/config"
+	"github.com/sirupsen/logrus"
 )
+
+func MapUpdate(srcIP uint32, id uint32) {
+	errcode, err := C.bpf_update_map(convertToCType(srcIP)[0].(C.uint), convertToCType(id)[0].(C.uint))
+	logrus.Warnf("[bpf] errors occurs when doing mapupdate err=%v", err)
+	if (int)(errcode) != 0 {
+		logrus.Warn("[bpf] map_update fail")
+	}
+}
 
 func Warp_do_detach(ifname string, prog_id int) int {
 	ifIdx := Warp_if_nametoindex(ifname)

@@ -53,16 +53,14 @@ int xdp_proxy(struct xdp_md *ctx)
         return XDP_ABORTED;
     }
 
-    struct sock_key key = {
-        .sip = __bpf_ntohl(iph->saddr),
-        .dport = ((tcphdr->dest & 0xff00) >> 8) + ((tcphdr->dest & 0x00ff) << 8)};
+    __u32 key = iph->saddr;
+    bpf_trace_printk("Saddr:%d", key);
     char *payload = data + nh_off;
 
     if ( bpf_map_lookup_elem(&bridge, &key) == NULL) {
         return XDP_PASS;
     }
 
-    // bpf_map_update_elem(&bridge, &key, 0, BPF_ANY);
     return XDP_DROP;
 }
 

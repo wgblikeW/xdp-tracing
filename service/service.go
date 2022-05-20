@@ -308,10 +308,11 @@ func (etcdService *EtcdService) Serve() {
 //---------------------------------------------------- gRPC Service ------------------------------
 
 type GrpcService struct {
-	Ctx      context.Context
-	Configs  *GrpcConfig
-	Server   *grpc.Server
-	Listener *net.Listener
+	Ctx        context.Context
+	Configs    *GrpcConfig
+	Server     *strategy.Server
+	gRPCServer *grpc.Server
+	Listener   *net.Listener
 }
 
 func NewGrpcService(ctx context.Context) *GrpcService {
@@ -328,20 +329,24 @@ func (grpcService *GrpcService) Conn() error {
 	if err != nil {
 		return err
 	}
+
 	grpcService.Listener = &listener
-	grpcService.Server = grpc.NewServer()
-	strategy.RegisterStrategyServer(grpcService.Server, &strategy.Server{})
+	grpcService.Server = &strategy.Server{
+		LocalStrategyCh: make(chan string, 64),
+	}
+	grpcService.gRPCServer = grpc.NewServer()
+	strategy.RegisterStrategyServer(grpcService.gRPCServer, grpcService.Server)
 	logrus.Infof("[gRPC Server] server listening at %v", listener.Addr())
 
 	return nil
 }
 
 func (grpcService *GrpcService) Serve() {
-	if err := grpcService.Server.Serve(*grpcService.Listener); err != nil {
+	if err := grpcService.gRPCServer.Serve(*grpcService.Listener); err != nil {
 		log.Fatalf("[gRPC Server] failed to serve: %v", err)
 	}
 }
 
 func (GrpcService *GrpcService) Stop() {
-	GrpcService.Server.Stop()
+	GrpcService.gRPCServer.GracefulStop()
 }

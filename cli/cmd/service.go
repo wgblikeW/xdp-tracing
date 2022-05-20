@@ -7,12 +7,14 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/p1nant0m/xdp-tracing/bpf"
 	"github.com/p1nant0m/xdp-tracing/handler"
 	"github.com/p1nant0m/xdp-tracing/handler/utils"
 	"github.com/p1nant0m/xdp-tracing/service"
@@ -102,7 +104,21 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 	startEtcdComponet(ctx)
 
 	// Start gRPC Server For receiving New Policy Deployment
-	startgRPCServer(ctx)
+	gRPCService := startgRPCServer(ctx)
+
+	go func() {
+		for policy := range gRPCService.Server.LocalStrategyCh {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				logrus.Infof("[gRPC Server] receives new poliy %v", policy)
+				h := utils.BytesToUInt32(net.ParseIP(policy).To4()) // host-endian uint representation
+				bpf.MapUpdate(h, gRPCService.Configs.MapID)
+			}
+		}
+	}()
+
 	fmt.Println("🥳 " + utils.FontSet("All Services Start successfully! Enjoy your Days!"))
 	<-ctx.Done()
 }

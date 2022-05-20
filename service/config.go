@@ -25,7 +25,8 @@ var gConfig *Config
 type stringList []string
 
 type GrpcConfig struct {
-	Port int
+	Port  int    `yaml:"port"`
+	MapID uint32 `yaml:"mapid"`
 }
 
 type EtcdConfig struct {
