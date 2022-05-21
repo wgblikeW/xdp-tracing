@@ -18,11 +18,17 @@ type Config struct {
 	PacketFilter *PacketFilterConfig `yaml:"packetfilter"`
 	Etcd         *EtcdConfig         `yaml:"etcd"`
 	Grpc         *GrpcConfig         `yaml:"grpc"`
+	Rest         *RestConfig         `yaml:"rest"`
 }
 
 var gConfig *Config
 
 type stringList []string
+
+type RestConfig struct {
+	Addr       string `yaml:"addr"`
+	Production bool   `yaml:"production"`
+}
 
 type GrpcConfig struct {
 	Port  int    `yaml:"port"`
@@ -116,6 +122,14 @@ func extractRedisConfig() *RedisConfig {
 
 func extractPacketFilterConfig() *PacketFilterConfig {
 	return gConfig.PacketFilter
+}
+
+func extractRestConfig() *RestConfig {
+	return gConfig.Rest
+}
+
+func ExtractRestConfig() *RestConfig {
+	return extractRestConfig()
 }
 
 func ReadAndParseConfig(filePath string) error {

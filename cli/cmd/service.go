@@ -18,7 +18,6 @@ import (
 	"github.com/p1nant0m/xdp-tracing/handler"
 	"github.com/p1nant0m/xdp-tracing/handler/utils"
 	"github.com/p1nant0m/xdp-tracing/service"
-	"github.com/p1nant0m/xdp-tracing/service/rest"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -51,7 +50,7 @@ func init() {
 	// is called directly, e.g.:
 	// serviceCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	serviceCmd.PersistentFlags().StringVarP(&sFlags.configPath, "conf", "c", "../conf/config.yml", "config file path for service <yml format>")
-	serviceCmd.MarkFlagRequired("conf")
+	serviceCmd.MarkPersistentFlagRequired("conf")
 }
 
 // serviceCmd represents the service command
@@ -95,10 +94,6 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 	// Making Data Flow From local Capturer to remote RedisDB
 	redisService.Register("capturer") // capturer need to use Redis Service, so it need to regist first
 	streamFlow_Cap2Rdb(ctx, redisService, observeCh)
-
-	// Start Rest Server
-	ginCtx := context.WithValue(ctx, "redis-service", redisService)
-	rest.RestServe(ginCtx)
 
 	// Make Registration in ETCD
 	startEtcdComponet(ctx)
@@ -242,10 +237,10 @@ func startPacketsCap(ctx context.Context) <-chan *handler.TCP_IP_Handler {
 
 func startRedisComponet(ctx context.Context) *service.RedisService {
 	// Setup Redis Service
-	var redisServe service.Service = service.NewRedisService(ctx)
+	var redisService service.Service = service.NewRedisService(ctx)
 
-	redisServe.Conn()
-	go redisServe.Serve()
+	redisService.Conn()
+	go redisService.Serve()
 
-	return redisServe.(*service.RedisService)
+	return redisService.(*service.RedisService)
 }

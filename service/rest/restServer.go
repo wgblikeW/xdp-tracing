@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,15 +20,47 @@ import (
 const (
 	REDIS_GET_COMM      = iota
 	REDIS_QUERY_TIMEOUT = time.Second * 3
-	ENABLE_PRODUCTION   = true
 )
 
 var localIPv4 string
+var ENABLE_PRODUCTION bool
+var restConfig *service.RestConfig
+
+func RunRestServer(configPath string) {
+	// Setup notifier and Make Configuration of All Services
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	watcher := make(chan os.Signal, 1)
+	signal.Notify(watcher, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-watcher
+		// OS Signal Catched, exit the program gracefully
+		cancel()
+	}()
+
+	err := service.ReadAndParseConfig(configPath)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	restConfig = service.ExtractRestConfig()
+
+	// Setup Redis Service
+	var redisService service.Service = service.NewRedisService(ctx)
+	redisService.Conn()
+	go redisService.Serve()
+
+	// Start Rest Server
+	ginCtx := context.WithValue(ctx, "redis-service", redisService)
+	RestServe(ginCtx)
+	<-ctx.Done()
+}
 
 // Make Configuration and Start the RESTFUL API Server
 func RestServe(ctx context.Context) {
 
-	if ENABLE_PRODUCTION {
+	if restConfig.Production {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
@@ -40,7 +74,8 @@ func RestServe(ctx context.Context) {
 	r := gin.Default()
 	r.GET("get/all/session", getAllSessionHandler)
 	r.GET("get/session/:key", getSessionPackets)
-	go r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	go r.Run(restConfig.Addr) //TODO: Adding Config listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+
 	fmt.Println("🥳 " + utils.FontSet("Go Gin RESTFUL API Server Start Successfully!"))
 	select {
 	case <-ctx.Done():

@@ -1,5 +1,5 @@
 redisdb:
-  addr: "localhost:6379"
+  addr: "192.168.176.128:6379"
   password: ""
   db: 0
   poolsize: 10
@@ -12,11 +12,15 @@ packetfilter:
 
 etcd:
   endpoints:
-    - "localhost:2379"
-    - "localhost:22379"
-    - "localhost:32379"
+    - "192.168.176.128:2379"
+    - "192.168.176.128:22379"
+    - "192.168.176.128:32379"
   dial-timeout: 5
   
 grpc:
   port: 50002
   mapid: 16
+
+rest:
+  addr: "localhost:7000"
+  production: true
