@@ -74,6 +74,11 @@ func RestServe(ctx context.Context) {
 	r := gin.Default()
 	r.GET("get/all/session", getAllSessionHandler)
 	r.GET("get/session/:key", getSessionPackets)
+	r.NoRoute(func(c *gin.Context) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "no definition of " + c.Request.RequestURI,
+		})
+	})
 	go r.Run(restConfig.Addr) //TODO: Adding Config listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 
 	fmt.Println("🥳 " + utils.FontSet("Go Gin RESTFUL API Server Start Successfully!"))
