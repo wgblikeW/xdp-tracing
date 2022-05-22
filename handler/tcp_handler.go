@@ -189,6 +189,7 @@ func (handler *TCP_IP_Handler) Handle(packet gopacket.Packet) error {
 		handler.Payload = &payload
 		handler.PayloadLen = uint32(len(payload))
 	} else {
+		handler.PayloadLen = 0
 		handler.PayloadExist = false
 	}
 

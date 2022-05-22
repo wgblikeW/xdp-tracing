@@ -18,7 +18,7 @@ etcd:
   dial-timeout: 5
   
 grpc:
-  port: 50002
+  port: 50003
   mapid: 16
 
 rest:

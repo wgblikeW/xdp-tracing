@@ -325,7 +325,7 @@ func NewGrpcService(ctx context.Context) *GrpcService {
 }
 
 func (grpcService *GrpcService) Conn() error {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcService.Configs.Port))
+	listener, err := net.Listen("tcp", fmt.Sprintf(utils.LocalIPObtain()+":%d", grpcService.Configs.Port))
 	if err != nil {
 		return err
 	}

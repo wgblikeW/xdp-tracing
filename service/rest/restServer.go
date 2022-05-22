@@ -20,6 +20,7 @@ import (
 const (
 	REDIS_GET_COMM      = iota
 	REDIS_QUERY_TIMEOUT = time.Second * 3
+	REDIS_SERVICE       = "redis-service"
 )
 
 var localIPv4 string
@@ -52,7 +53,7 @@ func RunRestServer(configPath string) {
 	go redisService.Serve()
 
 	// Start Rest Server
-	ginCtx := context.WithValue(ctx, "redis-service", redisService)
+	ginCtx := context.WithValue(ctx, REDIS_SERVICE, redisService)
 	RestServe(ginCtx)
 	<-ctx.Done()
 }
@@ -72,14 +73,15 @@ func RestServe(ctx context.Context) {
 	getSessionPackets := preparegetSessionPackets(redisService)
 
 	r := gin.Default()
-	r.GET("get/all/session", getAllSessionHandler)
+	r.GET("get/session/all", getAllSessionHandler)
 	r.GET("get/session/:key", getSessionPackets)
 	r.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": "no definition of " + c.Request.RequestURI,
 		})
 	})
-	go r.Run(restConfig.Addr) //TODO: Adding Config listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+
+	go r.Run(restConfig.Addr)
 
 	fmt.Println("🥳 " + utils.FontSet("Go Gin RESTFUL API Server Start Successfully!"))
 	select {
@@ -255,11 +257,17 @@ func preparegetAllSessionHandler(redisService *service.RedisService) (fn gin.Han
 				for _, session := range sessionList {
 					key := service.DecodeKey(session)
 					key_list = append(key_list, struct {
-						Key *service.Key
-						ID  string
+						Key   *service.Key
+						Links interface{}
 					}{
 						Key: key,
-						ID:  base64.URLEncoding.EncodeToString([]byte(session)),
+						Links: struct {
+							Rel  string
+							Href string
+						}{
+							Rel:  "get specific session info",
+							Href: fmt.Sprintf("/get/session/%v", base64.URLEncoding.EncodeToString([]byte(session))),
+						},
 					})
 				}
 				c.JSON(http.StatusOK, gin.H{"sessions": key_list})

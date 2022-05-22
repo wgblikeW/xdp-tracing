@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	addr = flag.String("addr", "localhost:50002", "the address to connect to")
+	addr = flag.String("addr", "192.168.176.128:50002", "the address to connect to")
 )
 
 func main() {
@@ -27,7 +27,7 @@ func main() {
 	c := strategy.NewStrategyClient(conn)
 
 	// Contact the server and print out its response.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
 	defer cancel()
 	r, err := c.InstallStrategy(ctx, &strategy.UpdateStrategy{Blockoutrules: []byte("172.17.0.4")})
 	if err != nil {
