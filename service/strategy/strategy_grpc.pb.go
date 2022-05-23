@@ -23,6 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StrategyClient interface {
 	InstallStrategy(ctx context.Context, in *UpdateStrategy, opts ...grpc.CallOption) (*UpdateStrategyReply, error)
+	RevokeStrategy(ctx context.Context, in *UpdateStrategy, opts ...grpc.CallOption) (*UpdateStrategyReply, error)
 }
 
 type strategyClient struct {
@@ -42,11 +43,21 @@ func (c *strategyClient) InstallStrategy(ctx context.Context, in *UpdateStrategy
 	return out, nil
 }
 
+func (c *strategyClient) RevokeStrategy(ctx context.Context, in *UpdateStrategy, opts ...grpc.CallOption) (*UpdateStrategyReply, error) {
+	out := new(UpdateStrategyReply)
+	err := c.cc.Invoke(ctx, "/strategy.Strategy/RevokeStrategy", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // StrategyServer is the server API for Strategy service.
 // All implementations must embed UnimplementedStrategyServer
 // for forward compatibility
 type StrategyServer interface {
 	InstallStrategy(context.Context, *UpdateStrategy) (*UpdateStrategyReply, error)
+	RevokeStrategy(context.Context, *UpdateStrategy) (*UpdateStrategyReply, error)
 	mustEmbedUnimplementedStrategyServer()
 }
 
@@ -56,6 +67,9 @@ type UnimplementedStrategyServer struct {
 
 func (UnimplementedStrategyServer) InstallStrategy(context.Context, *UpdateStrategy) (*UpdateStrategyReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InstallStrategy not implemented")
+}
+func (UnimplementedStrategyServer) RevokeStrategy(context.Context, *UpdateStrategy) (*UpdateStrategyReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RevokeStrategy not implemented")
 }
 func (UnimplementedStrategyServer) mustEmbedUnimplementedStrategyServer() {}
 
@@ -88,6 +102,24 @@ func _Strategy_InstallStrategy_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Strategy_RevokeStrategy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateStrategy)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StrategyServer).RevokeStrategy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/strategy.Strategy/RevokeStrategy",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StrategyServer).RevokeStrategy(ctx, req.(*UpdateStrategy))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Strategy_ServiceDesc is the grpc.ServiceDesc for Strategy service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -98,6 +130,10 @@ var Strategy_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InstallStrategy",
 			Handler:    _Strategy_InstallStrategy_Handler,
+		},
+		{
+			MethodName: "RevokeStrategy",
+			Handler:    _Strategy_RevokeStrategy_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

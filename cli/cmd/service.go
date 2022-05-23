@@ -96,7 +96,7 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 	streamFlow_Cap2Rdb(ctx, redisService, observeCh)
 
 	// Make Registration in ETCD
-	startEtcdComponet(ctx)
+	etcdService := startEtcdComponet(ctx)
 
 	// Start gRPC Server For receiving New Policy Deployment
 	gRPCService := startgRPCServer(ctx)
@@ -116,6 +116,8 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 
 	fmt.Println("🥳 " + utils.FontSet("All Services Start successfully! Enjoy your Days!"))
 	<-ctx.Done()
+
+	etcdService.Stop()
 }
 
 func startgRPCServer(ctx context.Context) *service.GrpcService {

@@ -244,6 +244,7 @@ type EtcdService struct {
 	Ctx         context.Context
 	Client      *clientv3.Client
 	Configs     *clientv3.Config
+	StopCh      chan struct{}
 	NodeID      string
 	ServiceType string
 }
@@ -272,6 +273,8 @@ func (etcdService *EtcdService) MakeNewEtcdOptions() {
 		RejectOldCluster:     etcdConfigs.RejectOldCluster,
 		PermitWithoutStream:  etcdConfigs.PermitWithoutStream,
 	}
+
+	etcdService.StopCh = make(chan struct{})
 }
 
 func (etcdService *EtcdService) Conn() error {
@@ -289,6 +292,7 @@ func (etcdService *EtcdService) Serve() {
 
 	leaseResp, _ := etcdService.Client.Lease.Grant(etcdService.Ctx, 60)
 
+	// Sign up the server in Service Registration
 	etcdService.Client.Put(etcdService.Ctx, fmt.Sprintf("node:%v", etcdService.NodeID),
 		utils.LocalIPObtain(), clientv3.WithLease(leaseResp.ID))
 
@@ -300,8 +304,19 @@ func (etcdService *EtcdService) Serve() {
 				"TTL":      resp.TTL,
 				"Revision": resp.Revision,
 			}).Info("[Etcd Service] response in KeepAlive Channel")
+			select {
+			case <-etcdService.StopCh:
+				return
+			default:
+			}
 		}
 	}()
+}
+
+//
+func (etcdService *EtcdService) Stop() {
+	etcdService.Client.Delete(etcdService.Ctx, fmt.Sprintf("node:%v", etcdService.NodeID))
+	close(etcdService.StopCh)
 }
 
 //---------------------------------------------------- Etcd Service ------------------------------
