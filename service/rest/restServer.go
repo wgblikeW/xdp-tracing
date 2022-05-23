@@ -184,7 +184,11 @@ func preparegetSessionPackets(redisService *service.RedisService) (fn gin.Handle
 						}{packet, kk, session.Score, direction})
 					}
 				}
-				c.JSON(http.StatusOK, gin.H{"packets": value_list})
+				c.JSON(http.StatusOK, gin.H{
+					"msg":  "/get/session/:key response",
+					"code": 0,
+					"data": value_list,
+				})
 			}
 
 		case <-ctx.Done():
@@ -270,7 +274,11 @@ func preparegetAllSessionHandler(redisService *service.RedisService) (fn gin.Han
 						},
 					})
 				}
-				c.JSON(http.StatusOK, gin.H{"sessions": key_list})
+				c.JSON(http.StatusOK, gin.H{
+					"msg":  "/get/session/all response",
+					"code": 0,
+					"data": key_list,
+				})
 			}
 
 		case <-ctx.Done():

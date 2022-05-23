@@ -54,7 +54,7 @@ func main() {
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
 	defer cancel()
-	r, err := c.InstallStrategy(ctx, &strategy.UpdateStrategy{Blockoutrules: []byte("172.17.0.4")})
+	r, err := c.InstallStrategy(ctx, &strategy.UpdateStrategy{Blockoutrules: []byte("172.17.0.1")})
 	if err != nil {
 		log.Fatalf("could not greet: %v", err)
 	}

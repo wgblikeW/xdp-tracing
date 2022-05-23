@@ -54,7 +54,6 @@ int xdp_proxy(struct xdp_md *ctx)
     }
 
     __u32 key = iph->saddr;
-    bpf_trace_printk("Saddr:%d", key);
     char *payload = data + nh_off;
 
     if ( bpf_map_lookup_elem(&bridge, &key) == NULL) {
