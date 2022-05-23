@@ -19,6 +19,7 @@ import (
 	"github.com/sirupsen/logrus"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 type Service interface {
@@ -334,7 +335,13 @@ func (grpcService *GrpcService) Conn() error {
 	grpcService.Server = &strategy.Server{
 		LocalStrategyCh: make(chan string, 64),
 	}
-	grpcService.gRPCServer = grpc.NewServer()
+
+	credsRootPath := "../service/strategy/x509/"
+	creds, err := credentials.NewServerTLSFromFile(credsRootPath+"server.crt", credsRootPath+"server.key")
+	if err != nil {
+		logrus.Fatal("[grpc Server] error occurs when creating crendential from files", "err=", err.Error())
+	}
+	grpcService.gRPCServer = grpc.NewServer(grpc.Creds(creds))
 	strategy.RegisterStrategyServer(grpcService.gRPCServer, grpcService.Server)
 	logrus.Infof("[gRPC Server] server listening at %v", listener.Addr())
 
