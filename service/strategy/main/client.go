@@ -35,7 +35,7 @@ const (
 	KEEP_ALIVE_TIMEOUT = 65
 )
 
-type PolicyGenerator interface {
+type PolicyController interface {
 	Read() string
 	Append(string)
 	Generate(context.Context) // Generate() will trace new comming policy and trigger [InstallStrategyRPC] Or [RevokeStrategyRPC]
@@ -51,7 +51,7 @@ type sendRPCParams struct {
 	Ctx       context.Context
 	IPAddr    string
 	NodeID    string
-	policyGen PolicyGenerator
+	policyGen PolicyController
 }
 
 var (
@@ -61,38 +61,38 @@ var (
 	slowQueue  chan string                      = make(chan string, 10)
 )
 
-type testPolicyGen struct {
+type testPolicyContro struct {
 	mu     sync.Mutex // using for protecting the operation in Policy
 	Policy []string
 }
 
-func (tGen *testPolicyGen) Read() string {
-	tGen.mu.Lock()
-	defer tGen.mu.Unlock()
-	return strings.Join(tGen.Policy, " ")
+func (tContro *testPolicyContro) Read() string {
+	tContro.mu.Lock()
+	defer tContro.mu.Unlock()
+	return strings.Join(tContro.Policy, " ")
 }
 
-func (tGen *testPolicyGen) Append(policy string) {
-	tGen.mu.Lock()
-	defer tGen.mu.Unlock()
-	tGen.Policy = append(tGen.Policy, policy)
+func (tContro *testPolicyContro) Append(policy string) {
+	tContro.mu.Lock()
+	defer tContro.mu.Unlock()
+	tContro.Policy = append(tContro.Policy, policy)
 }
 
-func (tGen *testPolicyGen) Generate(ctx context.Context) {
-	tGen.mu.Lock()
-	defer tGen.mu.Unlock()
+func (tContro *testPolicyContro) Generate(ctx context.Context) {
+	tContro.mu.Lock()
+	defer tContro.mu.Unlock()
 	newRules := "172.17.0.1"
-	tGen.Append(newRules)
-	SendRPCToPeers(ctx, InstallStrategy, tGen)
+	tContro.Append(newRules)
+	SendRPCToPeers(ctx, InstallStrategy, tContro)
 }
 
-func (tGen *testPolicyGen) ToByte() []byte {
-	tGen.mu.Lock()
-	defer tGen.mu.Unlock()
-	return []byte(tGen.Read())
+func (tContro *testPolicyContro) ToByte() []byte {
+	tContro.mu.Lock()
+	defer tContro.mu.Unlock()
+	return []byte(tContro.Read())
 }
 
-func SendRPCToPeers(ctx context.Context, rpcType RPCType, policyGen PolicyGenerator) {
+func SendRPCToPeers(ctx context.Context, rpcType RPCType, policyGen PolicyController) {
 	var goFunc func(params *sendRPCParams)
 
 	// Choosing different Handle Function for Sending RPC
@@ -155,7 +155,7 @@ func main() {
 	// Make TLS Configuration for gRPC Client
 	creds = makeTLSConfiguration()
 
-	var testGen PolicyGenerator = &testPolicyGen{}
+	var testGen PolicyController = &testPolicyContro{}
 	go testGen.Generate(ctx)
 	go nodeWatcher(ctx)
 	go retryConn()
