@@ -24,6 +24,13 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
+type RPCType uint32
+
+const (
+	InstallStrategy RPCType = iota
+	RevokeStrategy
+)
+
 const (
 	KEEP_ALIVE_TIMEOUT = 65
 )
@@ -38,6 +45,13 @@ type PolicyGenerator interface {
 type remoteHostCache struct {
 	Storage map[string]string
 	mu      sync.Mutex
+}
+
+type sendRPCParams struct {
+	Ctx       context.Context
+	IPAddr    string
+	NodeID    string
+	policyGen PolicyGenerator
 }
 
 var (
@@ -65,19 +79,35 @@ func (tGen *testPolicyGen) Append(policy string) {
 }
 
 func (tGen *testPolicyGen) Generate(ctx context.Context) {
+	tGen.mu.Lock()
+	defer tGen.mu.Unlock()
 	newRules := "172.17.0.1"
 	tGen.Append(newRules)
-	tGen.mu.Lock()
-	for nodeID, IPAddr := range remoteHost.Storage {
-		go sendInstallStrategyRPC(ctx, IPAddr, nodeID, tGen) //TODO: Implement Failure Dection and retry latter
-	}
-	tGen.mu.Unlock()
+	SendRPCToPeers(ctx, InstallStrategy, tGen)
 }
 
 func (tGen *testPolicyGen) ToByte() []byte {
 	tGen.mu.Lock()
 	defer tGen.mu.Unlock()
 	return []byte(tGen.Read())
+}
+
+func SendRPCToPeers(ctx context.Context, rpcType RPCType, policyGen PolicyGenerator) {
+	var goFunc func(params *sendRPCParams)
+
+	// Choosing different Handle Function for Sending RPC
+	switch rpcType {
+	case InstallStrategy:
+		goFunc = sendInstallStrategyRPC
+	case RevokeStrategy:
+		goFunc = sendRevokeStrategyRPC
+	}
+
+	remoteHost.mu.Lock()
+	for nodeID, IPAddr := range remoteHost.Storage {
+		go goFunc(&sendRPCParams{Ctx: ctx, IPAddr: IPAddr, NodeID: nodeID, policyGen: policyGen})
+	}
+	remoteHost.mu.Unlock()
 }
 
 // makeTLSConfiguration return crendentials for TLS Connection based on client key and client's
@@ -170,22 +200,45 @@ func retryConn() {
 	}
 }
 
-func sendInstallStrategyRPC(ctx context.Context, ipAddr string, nodeID string, policyGen PolicyGenerator) {
-	c, err := makeClient(ipAddr)
+func sendInstallStrategyRPC(params *sendRPCParams) {
+	c, err := makeClient(params.IPAddr)
 	if err != nil {
 		logrus.Warnf("[Policy Controller] error occurs when making Client err=", err.Error())
 		return
 	}
-
 	// Contact the server and print out its response.
-	ctxT, cancel := context.WithTimeout(ctx, time.Second*1)
+	ctxT, cancel := context.WithTimeout(params.Ctx, time.Second*1)
 	defer cancel()
 
-	r, err := c.InstallStrategy(ctxT, &strategy.UpdateStrategy{Blockoutrules: policyGen.ToByte()})
+	r, err := c.InstallStrategy(ctxT, &strategy.UpdateStrategy{Blockoutrules: params.policyGen.ToByte()})
 	if err != nil {
-		logrus.Fatalf("[Policy Controller] error occurs when sending RPC to %v err=%v", ipAddr, err)
+		logrus.Warnf("[Policy Controller] error occurs when sending RPC to %v err=%v", params.IPAddr, err)
+		// Slowly Retry sending InstallStrategyRPC to remote server
+		go func() {
+			var sleepTime time.Duration = 1
+			for {
+				sleepTime = sleepTime + 1 // Slightly increase the sleepTime as every failure tryings
+				time.Sleep(time.Second * sleepTime)
+
+				if _, exists := remoteHost.Storage[params.NodeID]; exists {
+					r, err := c.InstallStrategy(ctxT, &strategy.UpdateStrategy{Blockoutrules: params.policyGen.ToByte()})
+					if err != nil {
+						logrus.Warnf("[Policy Controller] error occurs when retrying sending RPC to %v err=%v", params.IPAddr, err)
+						continue
+					}
+					logrus.Infof("[Policy Controller] response from %v Status:%v", params.NodeID, r.Status)
+					return
+				} else {
+					return
+				}
+			}
+		}()
 	}
-	logrus.Infof("[Policy Controller] response from %v status=%v", ipAddr, r.Status)
+	logrus.Infof("[Policy Controller] response from %v status=%v", params.IPAddr, r.Status)
+}
+
+func sendRevokeStrategyRPC(params *sendRPCParams) {
+
 }
 
 func nodeWatcher(ctx context.Context) {
@@ -206,11 +259,13 @@ func nodeWatcher(ctx context.Context) {
 					// Node Server Instance Disconnnected from clusters
 					delete(remoteHost.Storage, string(event.Kv.Key)) // remove disconnected server from localcache
 					remoteHost.mu.Unlock()
+					logrus.Warn("[Policy Controller] remote server disconnected %v", string(event.Kv.Key))
 				case clientv3.EventTypePut:
 					// New Node Server Instance Connected to clusters
 					remoteHost.Storage[string(event.Kv.Key)] = string(event.Kv.Value)
 					// TODO: Sending InstallStrategyRPC to new Node
 					remoteHost.mu.Unlock()
+					logrus.Warn("[Policy Controller] remote server connected %v", string(event.Kv.Key))
 
 				default:
 					remoteHost.mu.Unlock()
