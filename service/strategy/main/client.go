@@ -35,6 +35,13 @@ const (
 	KEEP_ALIVE_TIMEOUT = 65
 )
 
+type Retry struct {
+	RPCParams   *sendRPCParams
+	RPCType     RPCType
+	Reason      string
+	RetryPeriod time.Duration
+}
+
 type PolicyController interface {
 	Read() string
 	Append(string)
@@ -48,17 +55,18 @@ type remoteHostCache struct {
 }
 
 type sendRPCParams struct {
-	Ctx       context.Context
-	IPAddr    string
-	NodeID    string
-	policyGen PolicyController
+	Ctx        context.Context
+	IPAddr     string
+	NodeID     string
+	policyGen  PolicyController
+	RetryTimes int
 }
 
 var (
 	remoteHost remoteHostCache                  = remoteHostCache{Storage: make(map[string]string)} // Take local records for cluster's nodes
 	connCache  map[string]*grpc.ClientConn      = make(map[string]*grpc.ClientConn)                 // Reuse the long-alive connection
 	creds      credentials.TransportCredentials                                                     // Credentials used for TLS connection to the gRPC server
-	slowQueue  chan string                      = make(chan string, 10)
+	recycleCh  chan *Retry                      = make(chan *Retry, 10)
 )
 
 type testPolicyContro struct {
@@ -92,8 +100,9 @@ func (tContro *testPolicyContro) ToByte() []byte {
 	return []byte(tContro.Read())
 }
 
+// SendRPCToPeers will call registed RPC method based on input "rpcTpye" to every node in the cluster
 func SendRPCToPeers(ctx context.Context, rpcType RPCType, policyGen PolicyController) {
-	var goFunc func(params *sendRPCParams)
+	var goFunc func(*sendRPCParams, chan<- *Retry)
 
 	// Choosing different Handle Function for Sending RPC
 	switch rpcType {
@@ -105,9 +114,34 @@ func SendRPCToPeers(ctx context.Context, rpcType RPCType, policyGen PolicyContro
 
 	remoteHost.mu.Lock()
 	for nodeID, IPAddr := range remoteHost.Storage {
-		go goFunc(&sendRPCParams{Ctx: ctx, IPAddr: IPAddr, NodeID: nodeID, policyGen: policyGen})
+		go goFunc(&sendRPCParams{Ctx: ctx, IPAddr: IPAddr, NodeID: nodeID, policyGen: policyGen}, recycleCh)
 	}
 	remoteHost.mu.Unlock()
+}
+
+func slowlyRetry(ctx context.Context) {
+	for retryEvent := range recycleCh {
+		go func(retryEvent *Retry) {
+			time.Sleep(time.Second * 3) // Wait for network recover or key node:.* expire
+			remoteHost.mu.Lock()
+			if _, exists := remoteHost.Storage[retryEvent.RPCParams.NodeID]; !exists {
+				// Retry will be invalid since the remote host is disconnected
+				remoteHost.mu.Unlock()
+				return
+			}
+			remoteHost.mu.Unlock()
+			switch retryEvent.RPCType {
+			case InstallStrategy:
+				logrus.Warn("[Policy Controller] Retrying InstallStrategyRPC %v:%v",
+					retryEvent.RPCParams.NodeID, retryEvent.RPCParams.IPAddr)
+				sendInstallStrategyRPC(retryEvent.RPCParams, recycleCh)
+			case RevokeStrategy:
+				logrus.Warn("[Policy Controller] Retrying RevokeStrategyRPC %v:%v",
+					retryEvent.RPCParams.NodeID, retryEvent.RPCParams.IPAddr)
+				sendRevokeStrategyRPC(retryEvent.RPCParams, recycleCh)
+			}
+		}(retryEvent)
+	}
 }
 
 // makeTLSConfiguration return crendentials for TLS Connection based on client key and client's
@@ -156,11 +190,14 @@ func main() {
 	creds = makeTLSConfiguration()
 
 	var testGen PolicyController = &testPolicyContro{}
-	go testGen.Generate(ctx)
-	go nodeWatcher(ctx)
-	go retryConn()
+	go testGen.Generate(ctx)     // this goroutine used for receiving new policy instrcution
+	go nodeWatcher(ctx, testGen) // this goroutine trace the modification of cluster nodes, and sync the cluster policy
+	go slowlyRetry(ctx)          // this goroutine will retired the failure RPCs until it is success or remote host be removed
+
+	<-ctx.Done()
 }
 
+// makeClient makes a new client on new connection or reused the established connection
 func makeClient(ipAddr string) (strategy.StrategyClient, error) {
 	var (
 		conn   *grpc.ClientConn
@@ -177,7 +214,6 @@ func makeClient(ipAddr string) (strategy.StrategyClient, error) {
 			grpc.WithKeepaliveParams(keepalive.ClientParameters{Timeout: KEEP_ALIVE_TIMEOUT}))
 		if err != nil {
 			// Slowly Retry making connection between client and server
-			slowQueue <- ipAddr
 			return nil, fmt.Errorf("did not connect:%v", err.Error())
 		}
 		// Closing the old Connection if it exists
@@ -193,17 +229,15 @@ out:
 	return c, nil
 }
 
-func retryConn() {
-	for ipAddr := range slowQueue {
-		time.Sleep(time.Second * 5)
-		makeClient(ipAddr)
-	}
-}
-
-func sendInstallStrategyRPC(params *sendRPCParams) {
+// sendInstallStrategyRPC sends InstallStrategy to gRPC Server Endpoint, it takes remote address,
+// nodeID and policy cotroller as input. No matter what happen (network partition, network failures or
+// remote server crash) it should ensure the every call will be treaded properly
+// (in the end it will go to remote server or remote server leave the cluster)
+func sendInstallStrategyRPC(params *sendRPCParams, recycle chan<- *Retry) {
 	c, err := makeClient(params.IPAddr)
 	if err != nil {
 		logrus.Warnf("[Policy Controller] error occurs when making Client err=", err.Error())
+		recycle <- &Retry{RPCParams: params, RPCType: InstallStrategy, Reason: err.Error()}
 		return
 	}
 	// Contact the server and print out its response.
@@ -212,36 +246,22 @@ func sendInstallStrategyRPC(params *sendRPCParams) {
 
 	r, err := c.InstallStrategy(ctxT, &strategy.UpdateStrategy{Blockoutrules: params.policyGen.ToByte()})
 	if err != nil {
+		recycle <- &Retry{RPCParams: params, RPCType: InstallStrategy, Reason: err.Error()}
 		logrus.Warnf("[Policy Controller] error occurs when sending RPC to %v err=%v", params.IPAddr, err)
-		// Slowly Retry sending InstallStrategyRPC to remote server
-		go func() {
-			var sleepTime time.Duration = 1
-			for {
-				sleepTime = sleepTime + 1 // Slightly increase the sleepTime as every failure tryings
-				time.Sleep(time.Second * sleepTime)
-
-				if _, exists := remoteHost.Storage[params.NodeID]; exists {
-					r, err := c.InstallStrategy(ctxT, &strategy.UpdateStrategy{Blockoutrules: params.policyGen.ToByte()})
-					if err != nil {
-						logrus.Warnf("[Policy Controller] error occurs when retrying sending RPC to %v err=%v", params.IPAddr, err)
-						continue
-					}
-					logrus.Infof("[Policy Controller] response from %v Status:%v", params.NodeID, r.Status)
-					return
-				} else {
-					return
-				}
-			}
-		}()
+		return
 	}
 	logrus.Infof("[Policy Controller] response from %v status=%v", params.IPAddr, r.Status)
 }
 
-func sendRevokeStrategyRPC(params *sendRPCParams) {
+func sendRevokeStrategyRPC(params *sendRPCParams, recycle chan<- *Retry) {
 
 }
 
-func nodeWatcher(ctx context.Context) {
+// nodeWatcher will connect to Etcd Server which used for Service Discovery and setup a wather in
+// observating the changes of cluster's node. If there is a new node join in the cluster, it should be
+// applied the strategy that any other nodes has, (syn process) and if a node leave the cluster, we should
+// keep things go right
+func nodeWatcher(ctx context.Context, policyGen PolicyController) {
 	var etcdService *service.EtcdService = service.NewEtcdService(ctx)
 	if err := etcdService.Conn(); err != nil {
 		logrus.Fatalf("[etcd Service] failed to start etcd componet err=%v", err.Error())
@@ -263,17 +283,26 @@ func nodeWatcher(ctx context.Context) {
 				case clientv3.EventTypePut:
 					// New Node Server Instance Connected to clusters
 					remoteHost.Storage[string(event.Kv.Key)] = string(event.Kv.Value)
-					// TODO: Sending InstallStrategyRPC to new Node
+
+					// Send Single RPC to new node to sync policy across the cluster
+					sendInstallStrategyRPC(&sendRPCParams{
+						NodeID:    string(event.Kv.Key),
+						IPAddr:    string(event.Kv.Value),
+						Ctx:       ctx,
+						policyGen: policyGen}, recycleCh)
+
 					remoteHost.mu.Unlock()
 					logrus.Warn("[Policy Controller] remote server connected %v", string(event.Kv.Key))
-
 				default:
+					logrus.Warn("[Policy Controller] not intention type received %v", event.Type.String())
 					remoteHost.mu.Unlock()
 				}
 			}
 
 			select {
 			case <-etcdService.StopCh:
+				return
+			case <-ctx.Done():
 				return
 			default:
 			}
