@@ -58,7 +58,7 @@ type sendRPCParams struct {
 	Ctx        context.Context
 	IPAddr     string
 	NodeID     string
-	policyGen  PolicyController
+	Policy     []byte
 	RetryTimes int
 }
 
@@ -88,9 +88,9 @@ func (tContro *testPolicyContro) Append(policy string) {
 
 func (tContro *testPolicyContro) Generate(ctx context.Context) {
 	// This should using Read() and Append() to operate Policy safely
-	newRules := "172.17.0.1"
+	newRules := "172.17.0.1 172.17.0.2 172.17.0.3"
 	tContro.Append(newRules)
-	go SendRPCToPeers(ctx, InstallStrategy, tContro)
+	go SendRPCToPeers(ctx, InstallStrategy, []byte(newRules))
 }
 
 func (tContro *testPolicyContro) ToByte() []byte {
@@ -99,7 +99,7 @@ func (tContro *testPolicyContro) ToByte() []byte {
 }
 
 // SendRPCToPeers will call registed RPC method based on input "rpcTpye" to every node in the cluster
-func SendRPCToPeers(ctx context.Context, rpcType RPCType, policyGen PolicyController) {
+func SendRPCToPeers(ctx context.Context, rpcType RPCType, policy []byte) {
 	var goFunc func(*sendRPCParams, chan<- *Retry)
 
 	// Choosing different Handle Function for Sending RPC
@@ -112,7 +112,7 @@ func SendRPCToPeers(ctx context.Context, rpcType RPCType, policyGen PolicyContro
 
 	remoteHost.mu.Lock()
 	for nodeID, IPAddr := range remoteHost.Storage {
-		go goFunc(&sendRPCParams{Ctx: ctx, IPAddr: IPAddr, NodeID: nodeID, policyGen: policyGen}, recycleCh)
+		go goFunc(&sendRPCParams{Ctx: ctx, IPAddr: IPAddr, NodeID: nodeID, Policy: policy}, recycleCh)
 	}
 	remoteHost.mu.Unlock()
 }
@@ -130,11 +130,11 @@ func slowlyRetry(ctx context.Context) {
 			remoteHost.mu.Unlock()
 			switch retryEvent.RPCType {
 			case InstallStrategy:
-				logrus.Warn("[Policy Controller] Retrying InstallStrategyRPC %v:%v",
+				logrus.Warnf("[Policy Controller] Retrying InstallStrategyRPC %v:%v",
 					retryEvent.RPCParams.NodeID, retryEvent.RPCParams.IPAddr)
 				sendInstallStrategyRPC(retryEvent.RPCParams, recycleCh)
 			case RevokeStrategy:
-				logrus.Warn("[Policy Controller] Retrying RevokeStrategyRPC %v:%v",
+				logrus.Warnf("[Policy Controller] Retrying RevokeStrategyRPC %v:%v",
 					retryEvent.RPCParams.NodeID, retryEvent.RPCParams.IPAddr)
 				sendRevokeStrategyRPC(retryEvent.RPCParams, recycleCh)
 			}
@@ -249,7 +249,7 @@ func sendInstallStrategyRPC(params *sendRPCParams, recycle chan<- *Retry) {
 	ctxT, cancel := context.WithTimeout(params.Ctx, time.Second*1)
 	defer cancel()
 
-	r, err := c.InstallStrategy(ctxT, &strategy.UpdateStrategy{Blockoutrules: params.policyGen.ToByte()})
+	r, err := c.InstallStrategy(ctxT, &strategy.UpdateStrategy{Blockoutrules: params.Policy})
 	if err != nil {
 		recycle <- &Retry{RPCParams: params, RPCType: InstallStrategy, Reason: err.Error()}
 		logrus.Warnf("[Policy Controller] error occurs when sending RPC to %v err=%v", params.IPAddr, err)
@@ -272,6 +272,15 @@ func nodeWatcher(ctx context.Context, policyGen PolicyController) {
 		logrus.Fatalf("[etcd Service] failed to start etcd componet err=%v", err.Error())
 	}
 
+	// Retrieve cluster's node that has already registed
+	kvs, err := etcdService.Client.Get(ctx, "node", clientv3.WithPrefix())
+	if err != nil {
+		logrus.Fatal("[etcd Service] error occurs when trying to get key with prefix [node]")
+	}
+	for _, kv := range kvs.Kvs {
+		logrus.Info("[Policy Controller] Cluster already has node before Policy Controller Start", "node=", string(kv.Key))
+		remoteHost.Storage[string(kv.Key)] = string(kv.Value)
+	}
 	watchCh := etcdService.Client.Watch(ctx, "node", clientv3.WithPrefix())
 
 	go func() {
@@ -293,10 +302,10 @@ func nodeWatcher(ctx context.Context, policyGen PolicyController) {
 					logrus.Warnf("[Policy Controller] remote server connected %v", string(event.Kv.Key))
 					// Send Single RPC to new node to sync policy across the cluster
 					sendInstallStrategyRPC(&sendRPCParams{
-						NodeID:    string(event.Kv.Key),
-						IPAddr:    string(event.Kv.Value),
-						Ctx:       ctx,
-						policyGen: policyGen}, recycleCh)
+						NodeID: string(event.Kv.Key),
+						IPAddr: string(event.Kv.Value),
+						Ctx:    ctx,
+						Policy: policyGen.ToByte()}, recycleCh)
 
 					remoteHost.mu.Unlock()
 				default:

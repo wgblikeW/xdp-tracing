@@ -4,3 +4,4 @@ xdp-tracing
 xdp-proxy
 *.key
 openssl-san.cnf
+main

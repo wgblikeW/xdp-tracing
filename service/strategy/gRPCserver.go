@@ -2,7 +2,10 @@ package strategy
 
 import (
 	"context"
+	"strings"
 )
+
+var localPolicyCache map[string]int = make(map[string]int)
 
 type Server struct {
 	UnimplementedStrategyServer
@@ -11,7 +14,13 @@ type Server struct {
 
 func (s *Server) InstallStrategy(ctx context.Context,
 	in *UpdateStrategy) (*UpdateStrategyReply, error) {
-	s.LocalStrategyCh <- string(in.Blockoutrules)
+	rulesList := strings.Split(string(in.Blockoutrules), " ")
+	for _, rule := range rulesList {
+		if _, exists := localPolicyCache[rule]; !exists {
+			localPolicyCache[rule] = 0
+			s.LocalStrategyCh <- string(rule)
+		}
+	}
 	return &UpdateStrategyReply{Status: "OK"}, nil
 }
 
