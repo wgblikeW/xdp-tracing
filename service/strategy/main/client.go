@@ -87,16 +87,14 @@ func (tContro *testPolicyContro) Append(policy string) {
 }
 
 func (tContro *testPolicyContro) Generate(ctx context.Context) {
-	tContro.mu.Lock()
-	defer tContro.mu.Unlock()
+	// This should using Read() and Append() to operate Policy safely
 	newRules := "172.17.0.1"
 	tContro.Append(newRules)
-	SendRPCToPeers(ctx, InstallStrategy, tContro)
+	go SendRPCToPeers(ctx, InstallStrategy, tContro)
 }
 
 func (tContro *testPolicyContro) ToByte() []byte {
-	tContro.mu.Lock()
-	defer tContro.mu.Unlock()
+	// This should using Read() and Append() to operate Policy safely
 	return []byte(tContro.Read())
 }
 
@@ -174,6 +172,13 @@ func makeTLSConfiguration() credentials.TransportCredentials {
 }
 
 func main() {
+	if len(os.Args) < 2 {
+		logrus.Fatal("./policy-controller [required <path of config.yml>]")
+	}
+	err := service.ReadAndParseConfig(os.Args[1])
+	if err != nil {
+		logrus.Fatal("[Policy Controller] error occurs when ReadAndParseConfig", "err=", err.Error())
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -188,11 +193,10 @@ func main() {
 
 	// Make TLS Configuration for gRPC Client
 	creds = makeTLSConfiguration()
-
 	var testGen PolicyController = &testPolicyContro{}
-	go testGen.Generate(ctx)     // this goroutine used for receiving new policy instrcution
-	go nodeWatcher(ctx, testGen) // this goroutine trace the modification of cluster nodes, and sync the cluster policy
-	go slowlyRetry(ctx)          // this goroutine will retired the failure RPCs until it is success or remote host be removed
+	nodeWatcher(ctx, testGen) // this goroutine trace the modification of cluster nodes, and sync the cluster policy
+	go testGen.Generate(ctx)  // this goroutine used for receiving new policy instrcution
+	go slowlyRetry(ctx)       // this goroutine will retired the failure RPCs until it is success or remote host be removed
 
 	<-ctx.Done()
 }
@@ -234,6 +238,7 @@ out:
 // remote server crash) it should ensure the every call will be treaded properly
 // (in the end it will go to remote server or remote server leave the cluster)
 func sendInstallStrategyRPC(params *sendRPCParams, recycle chan<- *Retry) {
+	logrus.Infof("[Policy Controller] trying sending RPC to %v", params.IPAddr)
 	c, err := makeClient(params.IPAddr)
 	if err != nil {
 		logrus.Warnf("[Policy Controller] error occurs when making Client err=", err.Error())
@@ -270,6 +275,7 @@ func nodeWatcher(ctx context.Context, policyGen PolicyController) {
 	watchCh := etcdService.Client.Watch(ctx, "node", clientv3.WithPrefix())
 
 	go func() {
+		logrus.Info("[Policy Controller] Successfully Start Etcd Service and Setup Wather on key with prefix [node]")
 		for watch := range watchCh {
 			for _, event := range watch.Events {
 				remoteHost.mu.Lock()
@@ -279,11 +285,12 @@ func nodeWatcher(ctx context.Context, policyGen PolicyController) {
 					// Node Server Instance Disconnnected from clusters
 					delete(remoteHost.Storage, string(event.Kv.Key)) // remove disconnected server from localcache
 					remoteHost.mu.Unlock()
-					logrus.Warn("[Policy Controller] remote server disconnected %v", string(event.Kv.Key))
+					logrus.Warnf("[Policy Controller] remote server disconnected %v", string(event.Kv.Key))
+
 				case clientv3.EventTypePut:
 					// New Node Server Instance Connected to clusters
 					remoteHost.Storage[string(event.Kv.Key)] = string(event.Kv.Value)
-
+					logrus.Warnf("[Policy Controller] remote server connected %v", string(event.Kv.Key))
 					// Send Single RPC to new node to sync policy across the cluster
 					sendInstallStrategyRPC(&sendRPCParams{
 						NodeID:    string(event.Kv.Key),
@@ -292,9 +299,8 @@ func nodeWatcher(ctx context.Context, policyGen PolicyController) {
 						policyGen: policyGen}, recycleCh)
 
 					remoteHost.mu.Unlock()
-					logrus.Warn("[Policy Controller] remote server connected %v", string(event.Kv.Key))
 				default:
-					logrus.Warn("[Policy Controller] not intention type received %v", event.Type.String())
+					logrus.Warnf("[Policy Controller] not intention type received %v", event.Type.String())
 					remoteHost.mu.Unlock()
 				}
 			}

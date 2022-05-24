@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -291,10 +292,10 @@ func (etcdService *EtcdService) Conn() error {
 func (etcdService *EtcdService) Serve() {
 
 	leaseResp, _ := etcdService.Client.Lease.Grant(etcdService.Ctx, 60)
-
+	gRPCListenPort := extractgRPCConfig().Port
 	// Sign up the server in Service Registration
 	etcdService.Client.Put(etcdService.Ctx, fmt.Sprintf("node:%v", etcdService.NodeID),
-		utils.LocalIPObtain(), clientv3.WithLease(leaseResp.ID))
+		utils.LocalIPObtain()+":"+strconv.Itoa(gRPCListenPort), clientv3.WithLease(leaseResp.ID))
 
 	respCh, _ := etcdService.Client.Lease.KeepAlive(etcdService.Ctx, leaseResp.ID)
 
