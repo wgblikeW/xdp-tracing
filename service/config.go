@@ -31,8 +31,9 @@ type RestConfig struct {
 }
 
 type GrpcConfig struct {
-	Port  int    `yaml:"port"`
-	MapID uint32 `yaml:"mapid"`
+	Port           int    `yaml:"port"`
+	MapID          uint32 `yaml:"mapid"`
+	CredentialPath string `yaml:"credentialpath"`
 }
 
 type EtcdConfig struct {

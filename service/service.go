@@ -352,7 +352,7 @@ func (grpcService *GrpcService) Conn() error {
 		LocalStrategyCh: make(chan string, 64),
 	}
 
-	credsRootPath := "../service/strategy/x509/"
+	credsRootPath := grpcService.Configs.CredentialPath
 	creds, err := credentials.NewServerTLSFromFile(credsRootPath+"server.crt", credsRootPath+"server.key")
 	if err != nil {
 		logrus.Fatal("[grpc Server] error occurs when creating crendential from files", "err=", err.Error())

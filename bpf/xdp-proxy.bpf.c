@@ -53,7 +53,8 @@ int xdp_proxy(struct xdp_md *ctx)
         return XDP_ABORTED;
     }
 
-    __u32 key = iph->saddr;
+    __u32 key = bpf_ntohl(iph->saddr);
+    __u32 value = 0;
     char *payload = data + nh_off;
 
     if ( bpf_map_lookup_elem(&bridge, &key) == NULL) {

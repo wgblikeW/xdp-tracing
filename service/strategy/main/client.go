@@ -27,6 +27,10 @@ import (
 type RPCType uint32
 
 const (
+	SERVER_NAME = "server.grpc.io"
+)
+
+const (
 	InstallStrategy RPCType = iota
 	RevokeStrategy
 )
@@ -88,7 +92,7 @@ func (tContro *testPolicyContro) Append(policy string) {
 
 func (tContro *testPolicyContro) Generate(ctx context.Context) {
 	// This should using Read() and Append() to operate Policy safely
-	newRules := "172.17.0.1 172.17.0.2 172.17.0.3"
+	newRules := "172.17.0.10"
 	tContro.Append(newRules)
 	go SendRPCToPeers(ctx, InstallStrategy, []byte(newRules))
 }
@@ -145,9 +149,8 @@ func slowlyRetry(ctx context.Context) {
 // makeTLSConfiguration return crendentials for TLS Connection based on client key and client's
 // certificate, it will also load CA certificate to verify the server certificate during
 // TLS handshake
-func makeTLSConfiguration() credentials.TransportCredentials {
-	// TODO: Move "credsRootPath" reading from Config file
-	credsRootPath := "../x509/"
+func makeTLSConfiguration(credsPath string) credentials.TransportCredentials {
+	credsRootPath := credsPath
 	certificate, err := tls.LoadX509KeyPair(credsRootPath+"client.crt", credsRootPath+"client.key")
 	if err != nil {
 		logrus.Fatal("[grpc Client] error occurs when loading x509 key-pair err=", err.Error())
@@ -164,7 +167,7 @@ func makeTLSConfiguration() credentials.TransportCredentials {
 
 	creds := credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{certificate},
-		ServerName:   "server.grpc.io",
+		ServerName:   SERVER_NAME,
 		RootCAs:      certPool,
 	})
 
@@ -172,8 +175,8 @@ func makeTLSConfiguration() credentials.TransportCredentials {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		logrus.Fatal("./policy-controller [required <path of config.yml>]")
+	if len(os.Args) < 3 {
+		logrus.Fatal("./policy-controller [required <path of config.yml>] [required <path of credentials>]")
 	}
 	err := service.ReadAndParseConfig(os.Args[1])
 	if err != nil {
@@ -192,7 +195,7 @@ func main() {
 	}()
 
 	// Make TLS Configuration for gRPC Client
-	creds = makeTLSConfiguration()
+	creds = makeTLSConfiguration(os.Args[2])
 	var testGen PolicyController = &testPolicyContro{}
 	nodeWatcher(ctx, testGen) // this goroutine trace the modification of cluster nodes, and sync the cluster policy
 	go testGen.Generate(ctx)  // this goroutine used for receiving new policy instrcution
