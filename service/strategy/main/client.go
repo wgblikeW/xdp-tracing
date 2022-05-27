@@ -73,6 +73,37 @@ var (
 	recycleCh  chan *Retry                      = make(chan *Retry, 10)
 )
 
+type PolicyControFromRest struct {
+	mu              sync.Mutex
+	BootstrapServer string
+	Policy          []string
+}
+
+func (rContro *PolicyControFromRest) Read() string {
+	rContro.mu.Lock()
+	defer rContro.mu.Unlock()
+	return strings.Join(rContro.Policy, " ")
+}
+
+func (rContro *PolicyControFromRest) Append(policy string) {
+	rContro.mu.Lock()
+	defer rContro.mu.Unlock()
+	rContro.Policy = append(rContro.Policy, policy)
+}
+
+func (rContro *PolicyControFromRest) Generate(ctx context.Context) {
+	// This should using Read() and Append() to operate Policy safely
+	/** TODO: Request RestAPI for the newest judgement about the Application Data Flow
+	Make Policy based on the prediction whether an action was malicious or not **/
+}
+
+func (rContro *PolicyControFromRest) ToByte() []byte {
+	// This should using Read() and Append() to operate Policy safely
+	return []byte(rContro.Read())
+}
+
+// testPolicyController uses for testing gRPC configuration and whether eBPF agent
+// can apply policy to eBPF kernel program
 type testPolicyContro struct {
 	mu     sync.Mutex // using for protecting the operation in Policy
 	Policy []string
@@ -175,13 +206,16 @@ func makeTLSConfiguration(credsPath string) credentials.TransportCredentials {
 }
 
 func main() {
-	if len(os.Args) < 3 {
-		logrus.Fatal("./policy-controller [required <path of config.yml>] [required <path of credentials>]")
+	if len(os.Args) < 4 {
+		logrus.Fatal("./policy-controller [required <path of config.yml>]" +
+			" [required <path of credentials>]" + "[required <boostrap-restServer>]")
 	}
+
 	err := service.ReadAndParseConfig(os.Args[1])
 	if err != nil {
 		logrus.Fatal("[Policy Controller] error occurs when ReadAndParseConfig", "err=", err.Error())
 	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -197,6 +231,7 @@ func main() {
 	// Make TLS Configuration for gRPC Client
 	creds = makeTLSConfiguration(os.Args[2])
 	var testGen PolicyController = &testPolicyContro{}
+
 	nodeWatcher(ctx, testGen) // this goroutine trace the modification of cluster nodes, and sync the cluster policy
 	go testGen.Generate(ctx)  // this goroutine used for receiving new policy instrcution
 	go slowlyRetry(ctx)       // this goroutine will retired the failure RPCs until it is success or remote host be removed
