@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/p1nant0m/xdp-tracing/handler"
 	"github.com/p1nant0m/xdp-tracing/handler/utils"
+	"github.com/p1nant0m/xdp-tracing/perf"
 	"github.com/p1nant0m/xdp-tracing/service/strategy"
 	"github.com/sirupsen/logrus"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -293,10 +294,23 @@ func (etcdService *EtcdService) Serve() {
 
 	leaseResp, _ := etcdService.Client.Lease.Grant(etcdService.Ctx, 60)
 	gRPCListenPort := extractgRPCConfig().Port
-	// Sign up the server in Service Registration
+	// Sign up the server with IPAddrress in Service Registration
 	etcdService.Client.Put(etcdService.Ctx, fmt.Sprintf("node:%v", etcdService.NodeID),
 		utils.LocalIPObtain()+":"+strconv.Itoa(gRPCListenPort), clientv3.WithLease(leaseResp.ID))
+	// Regist the information related to the machine and periodically refresh
+	go func() {
+		for {
+			etcdService.Client.Put(etcdService.Ctx, fmt.Sprintf("host-info:%v", etcdService.NodeID),
+				string(perf.GetHostPerf()), clientv3.WithLease(leaseResp.ID))
 
+			select {
+			case <-etcdService.Ctx.Done():
+				return
+			default:
+				time.Sleep(time.Second * 10)
+			}
+		}
+	}()
 	respCh, _ := etcdService.Client.Lease.KeepAlive(etcdService.Ctx, leaseResp.ID)
 
 	go func() {
@@ -316,7 +330,11 @@ func (etcdService *EtcdService) Serve() {
 
 //
 func (etcdService *EtcdService) Stop() {
-	etcdService.Client.Delete(etcdService.Ctx, fmt.Sprintf("node:%v", etcdService.NodeID))
+	// etcdService.Ctx has already Done, use new context to the task
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+	etcdService.Client.Delete(ctx, fmt.Sprintf("node:%v", etcdService.NodeID))
+	etcdService.Client.Delete(ctx, fmt.Sprintf("host-info:%v", etcdService.NodeID))
 	close(etcdService.StopCh)
 }
 

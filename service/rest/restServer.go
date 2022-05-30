@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,7 +15,9 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/p1nant0m/xdp-tracing/handler/utils"
+	"github.com/p1nant0m/xdp-tracing/perf"
 	"github.com/p1nant0m/xdp-tracing/service"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 const (
@@ -23,9 +26,12 @@ const (
 	REDIS_SERVICE       = "redis-service"
 )
 
-var localIPv4 string
-var ENABLE_PRODUCTION bool
-var restConfig *service.RestConfig
+var (
+	localIPv4         string
+	hostInfo          map[string]*perf.HostInfo = make(map[string]*perf.HostInfo)
+	ENABLE_PRODUCTION bool
+	restConfig        *service.RestConfig
+)
 
 func RunRestServer(configPath string) {
 	// Setup notifier and Make Configuration of All Services
@@ -52,6 +58,33 @@ func RunRestServer(configPath string) {
 	redisService.Conn()
 	go redisService.Serve()
 
+	var etcdService *service.EtcdService = service.NewEtcdService(ctx)
+	etcdService.Conn()
+	go func(client *clientv3.Client) {
+		resps, _ := client.Get(ctx, "host-info", clientv3.WithPrefix())
+		for _, kv := range resps.Kvs {
+			newHostInfo := &perf.HostInfo{}
+			json.Unmarshal(kv.Value, newHostInfo)
+			hostInfo[string(kv.Key)] = newHostInfo
+		}
+
+		watchCh := client.Watch(ctx, "host-info", clientv3.WithPrefix())
+		for watch := range watchCh {
+			for _, event := range watch.Events {
+				switch event.Type {
+				case clientv3.EventTypePut:
+					nodeID := string(event.Kv.Key)
+					newHostInfo := &perf.HostInfo{}
+					json.Unmarshal(event.Kv.Value, newHostInfo)
+					hostInfo[nodeID] = newHostInfo
+				case clientv3.EventTypeDelete:
+					nodeID := string(event.Kv.Key)
+					delete(hostInfo, nodeID)
+				}
+			}
+		}
+	}(etcdService.Client)
+
 	// Start Rest Server
 	ginCtx := context.WithValue(ctx, REDIS_SERVICE, redisService)
 	RestServe(ginCtx)
@@ -71,10 +104,12 @@ func RestServe(ctx context.Context) {
 	// Registration of Handler that we will use in the router
 	getAllSessionHandler := preparegetAllSessionHandler(redisService)
 	getSessionPackets := preparegetSessionPackets(redisService)
+	getInstancesHandler := prepareGetInstancesHandler()
 
 	r := gin.Default()
 	r.GET("get/session/all", getAllSessionHandler)
 	r.GET("get/session/:key", getSessionPackets)
+	r.GET("get/instances", getInstancesHandler)
 	r.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": "no definition of " + c.Request.RequestURI,
@@ -89,6 +124,17 @@ func RestServe(ctx context.Context) {
 		os.Exit(0)
 	default:
 	}
+}
+
+func prepareGetInstancesHandler() (fn gin.HandlerFunc) {
+	fn = func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"msg":  "response from /get/instances",
+			"data": hostInfo,
+		})
+	}
+	return
 }
 
 // preparegetSessionPackets implement the RESTFUL API /get/session/<Key Struct Serd on base64 encoding>
