@@ -5,11 +5,21 @@ import (
 	"strings"
 )
 
-var localPolicyCache map[string]int = make(map[string]int)
+var localPolicyCache map[string]struct{} = make(map[string]struct{})
+
+const (
+	REVOKE  = "revoke"
+	INSTALL = "install"
+)
+
+type PolicyOp struct {
+	Type string
+	Rule string
+}
 
 type Server struct {
 	UnimplementedStrategyServer
-	LocalStrategyCh chan string
+	LocalStrategyCh chan *PolicyOp
 }
 
 func (s *Server) InstallStrategy(ctx context.Context,
@@ -17,13 +27,25 @@ func (s *Server) InstallStrategy(ctx context.Context,
 	rulesList := strings.Split(string(in.Blockoutrules), " ")
 	for _, rule := range rulesList {
 		if _, exists := localPolicyCache[rule]; !exists {
-			localPolicyCache[rule] = 0
-			s.LocalStrategyCh <- string(rule)
+			localPolicyCache[rule] = struct{}{}
+			s.LocalStrategyCh <- &PolicyOp{Type: INSTALL, Rule: rule}
 		}
 	}
 	return &UpdateStrategyReply{Status: "OK"}, nil
 }
 
-func (s *Server) GetLocalStrategyCh() chan string {
+func (s *Server) RevokeStrategy(ctx context.Context,
+	in *UpdateStrategy) (*UpdateStrategyReply, error) {
+	rulesList := strings.Split(string(in.Blockoutrules), " ")
+	for _, rule := range rulesList {
+		if _, exists := localPolicyCache[rule]; !exists {
+			delete(localPolicyCache, rule)
+			s.LocalStrategyCh <- &PolicyOp{Type: REVOKE, Rule: rule}
+		}
+	}
+	return &UpdateStrategyReply{Status: "OK"}, nil
+}
+
+func (s *Server) GetLocalStrategyCh() chan *PolicyOp {
 	return s.LocalStrategyCh
 }

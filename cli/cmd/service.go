@@ -18,6 +18,7 @@ import (
 	"github.com/p1nant0m/xdp-tracing/handler"
 	"github.com/p1nant0m/xdp-tracing/handler/utils"
 	"github.com/p1nant0m/xdp-tracing/service"
+	"github.com/p1nant0m/xdp-tracing/service/strategy"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -107,9 +108,16 @@ func serviceCommandRunFunc(cmd *cobra.Command, args []string) {
 			case <-ctx.Done():
 				return
 			default:
-				logrus.Infof("[gRPC Server] receives new poliy %v", policy)
-				h := utils.BytesToUInt32(net.ParseIP(policy).To4()) // host-endian uint representation
-				bpf.MapUpdate(h, gRPCService.Configs.MapID)
+				logrus.Infof("[gRPC Server] receives new poliyOp %v", policy)
+				switch policy.Type {
+				case strategy.INSTALL:
+					h := utils.BytesToUInt32(net.ParseIP(policy.Rule).To4()) // host-endian uint representation
+					bpf.MapUpdate(h, gRPCService.Configs.MapID)
+				case strategy.REVOKE:
+					h := utils.BytesToUInt32(net.ParseIP(policy.Rule).To4())
+					bpf.MapRevoke(h, gRPCService.Configs.MapID)
+				}
+
 			}
 		}
 	}()

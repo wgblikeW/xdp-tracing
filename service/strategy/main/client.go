@@ -290,14 +290,31 @@ func sendInstallStrategyRPC(params *sendRPCParams, recycle chan<- *Retry) {
 	r, err := c.InstallStrategy(ctxT, &strategy.UpdateStrategy{Blockoutrules: params.Policy})
 	if err != nil {
 		recycle <- &Retry{RPCParams: params, RPCType: InstallStrategy, Reason: err.Error()}
-		logrus.Warnf("[Policy Controller] error occurs when sending RPC to %v err=%v", params.IPAddr, err)
+		logrus.Warnf("[Policy Controller] error occurs when sending InstallStrategyRPC to %v err=%v", params.IPAddr, err)
 		return
 	}
 	logrus.Infof("[Policy Controller] response from %v status=%v", params.IPAddr, r.Status)
 }
 
 func sendRevokeStrategyRPC(params *sendRPCParams, recycle chan<- *Retry) {
+	logrus.Infof("[Policy Controller] trying sending RPC to %v", params.IPAddr)
+	c, err := makeClient(params.IPAddr)
+	if err != nil {
+		logrus.Warnf("[Policy Controller] error occurs when making Client err=", err.Error())
+		recycle <- &Retry{RPCParams: params, RPCType: InstallStrategy, Reason: err.Error()}
+		return
+	}
+	// Contact the server and print out its response.
+	ctxT, cancel := context.WithTimeout(params.Ctx, time.Second*1)
+	defer cancel()
 
+	r, err := c.RevokeStrategy(ctxT, &strategy.UpdateStrategy{Blockoutrules: params.Policy})
+	if err != nil {
+		recycle <- &Retry{RPCParams: params, RPCType: InstallStrategy, Reason: err.Error()}
+		logrus.Warnf("[Policy Controller] error occurs when sending RevokeStrategyRPC to %v err=%v", params.IPAddr, err)
+		return
+	}
+	logrus.Infof("[Policy Controller] response from %v status=%v", params.IPAddr, r.Status)
 }
 
 // nodeWatcher will connect to Etcd Server which used for Service Discovery and setup a wather in

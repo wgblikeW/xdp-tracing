@@ -349,7 +349,7 @@ func (grpcService *GrpcService) Conn() error {
 
 	grpcService.Listener = &listener
 	grpcService.Server = &strategy.Server{
-		LocalStrategyCh: make(chan string, 64),
+		LocalStrategyCh: make(chan *strategy.PolicyOp, 64),
 	}
 
 	credsRootPath := grpcService.Configs.CredentialPath
