@@ -10,6 +10,11 @@ import (
 	"github.com/shirou/gopsutil/net"
 )
 
+var (
+	previousByteSend uint64 = 0
+	previousByteReve uint64 = 0
+)
+
 type Empty struct{}
 
 var empty Empty
@@ -40,12 +45,14 @@ func (s *Set[T]) ToList() []T {
 }
 
 type HostInfo struct {
-	Hostname string   `json:"hostname"`
-	HostIpv4 string   `json:"hostaddr"`
-	Platform string   `json:"platform"`
-	OpenPort []uint32 `json:"openport"`
-	CPUUsage float64  `json:"cpuusage"`
-	MemUsage float64  `json:"memusage"`
+	Hostname  string   `json:"hostname"`
+	HostIpv4  string   `json:"hostaddr"`
+	Platform  string   `json:"platform"`
+	OpenPort  []uint32 `json:"openport"`
+	CPUUsage  float64  `json:"cpuusage"`
+	MemUsage  float64  `json:"memusage"`
+	BytesSent uint64   `json:"byteSent"`
+	BytesRecv uint64   `json:"byteRecv"`
 }
 
 func GetHostPerf() *HostInfo {
@@ -54,21 +61,26 @@ func GetHostPerf() *HostInfo {
 	memInfo, _ := mem.VirtualMemory()
 	memUsage := memInfo.UsedPercent
 	netStats, _ := net.Connections("tcp")
+	counterStat, _ := net.IOCounters(false)
 	var openPort Set[uint32] = Set[uint32]{
 		m: make(map[uint32]Empty),
 	}
+
 	for _, netStat := range netStats {
 		openPort.Add(netStat.Laddr.Port)
 	}
 
 	host := &HostInfo{
-		Hostname: hostInfo.Hostname,
-		HostIpv4: utils.LocalIPObtain(),
-		Platform: hostInfo.OS + "-" + hostInfo.Platform + "-" + hostInfo.PlatformVersion,
-		OpenPort: openPort.ToList(),
-		CPUUsage: cpuUsage[0],
-		MemUsage: memUsage,
+		Hostname:  hostInfo.Hostname,
+		HostIpv4:  utils.LocalIPObtain(),
+		Platform:  hostInfo.OS + "-" + hostInfo.Platform + "-" + hostInfo.PlatformVersion,
+		OpenPort:  openPort.ToList(),
+		CPUUsage:  cpuUsage[0],
+		MemUsage:  memUsage,
+		BytesSent: counterStat[0].BytesSent - previousByteSend,
+		BytesRecv: counterStat[0].BytesRecv - previousByteReve,
 	}
-
+	previousByteSend = counterStat[0].BytesSent
+	previousByteReve = counterStat[0].BytesRecv
 	return host
 }
