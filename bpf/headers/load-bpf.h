@@ -10,3 +10,4 @@ struct input_args
 };
 int attach_bpf_prog_to_if(struct input_args inputs);
 int bpf_update_map(__u32, unsigned int);
+int bpf_revoke_map(__u32, unsigned int);

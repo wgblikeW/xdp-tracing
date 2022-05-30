@@ -127,10 +127,15 @@ int attach_bpf_prog_to_if(struct input_args inputs)
 }
 
 
-
 int bpf_update_map(__u32 srcIP, unsigned int id) {
     int fd = bpf_map_get_fd_by_id(id);
     __u32 value = 0;
     bpf_map_update_elem(fd, &srcIP, &value, BPF_ANY);
+    return OK;
+}
+
+int bpf_revoke_map(__u32 srcIP, unsigned int id) {
+    int fd = bpf_map_get_fd_by_id(id);
+    bpf_map_delete_elem(fd, &srcIP);
     return OK;
 }

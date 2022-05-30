@@ -13,11 +13,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func MapRevoke(srcIP uint32, id uint32) {
+	errcode, err := C.bpf_revoke_map(convertToCType(srcIP)[0].(C.uint), convertToCType(id)[0].(C.uint))
+	if err != nil {
+		logrus.Warnf("[bpf] errors occurs when doing mapRevoke err=%v errcode=%v", err, errcode)
+	} else {
+		logrus.Warn("[bpf] successfully revoke map elem %v", srcIP)
+	}
+}
+
 func MapUpdate(srcIP uint32, id uint32) {
 	errcode, err := C.bpf_update_map(convertToCType(srcIP)[0].(C.uint), convertToCType(id)[0].(C.uint))
-	logrus.Warnf("[bpf] errors occurs when doing mapupdate err=%v", err)
-	if (int)(errcode) != 0 {
-		logrus.Warn("[bpf] map_update fail")
+	if err != nil {
+		logrus.Warnf("[bpf] errors occurs when doing mapUpdate err=%v errcode=%v", err, errcode)
+	} else {
+		logrus.Warn("[bpf] successfully update map elem %v", srcIP)
 	}
 }
 
