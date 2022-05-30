@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -128,10 +129,22 @@ func RestServe(ctx context.Context) {
 
 func prepareGetInstancesHandler() (fn gin.HandlerFunc) {
 	fn = func(c *gin.Context) {
+		var infoList []*struct {
+			*perf.HostInfo
+			NodeID string `json:"nodeid"`
+		}
+
+		for key, value := range hostInfo {
+			infoList = append(infoList, &struct {
+				*perf.HostInfo
+				NodeID string `json:"nodeid"`
+			}{value, strings.TrimPrefix(key, "host-info:")})
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"code": 0,
 			"msg":  "response from /get/instances",
-			"data": hostInfo,
+			"data": infoList,
 		})
 	}
 	return
