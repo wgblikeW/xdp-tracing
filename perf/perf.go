@@ -1,7 +1,6 @@
 package perf
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/p1nant0m/xdp-tracing/handler/utils"
@@ -49,7 +48,7 @@ type HostInfo struct {
 	MemUsage float64  `json:"memusage"`
 }
 
-func GetHostPerf() []byte {
+func GetHostPerf() *HostInfo {
 	hostInfo, _ := host.Info()
 	cpuUsage, _ := cpu.Percent(time.Second, false)
 	memInfo, _ := mem.VirtualMemory()
@@ -71,6 +70,5 @@ func GetHostPerf() []byte {
 		MemUsage: memUsage,
 	}
 
-	jsonRe, _ := json.Marshal(host)
-	return jsonRe
+	return host
 }

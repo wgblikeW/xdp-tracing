@@ -28,8 +28,17 @@ const (
 )
 
 var (
-	localIPv4         string
-	hostInfo          map[string]*perf.HostInfo = make(map[string]*perf.HostInfo)
+	localIPv4 string
+
+	// Union Json Representation
+	hostInfo map[string]*struct {
+		*service.SpecConfig
+		*perf.HostInfo
+	} = make(map[string]*struct {
+		*service.SpecConfig
+		*perf.HostInfo
+	})
+
 	ENABLE_PRODUCTION bool
 	restConfig        *service.RestConfig
 )
@@ -64,7 +73,10 @@ func RunRestServer(configPath string) {
 	go func(client *clientv3.Client) {
 		resps, _ := client.Get(ctx, "host-info", clientv3.WithPrefix())
 		for _, kv := range resps.Kvs {
-			newHostInfo := &perf.HostInfo{}
+			newHostInfo := &struct {
+				*service.SpecConfig
+				*perf.HostInfo
+			}{}
 			json.Unmarshal(kv.Value, newHostInfo)
 			hostInfo[string(kv.Key)] = newHostInfo
 		}
@@ -75,7 +87,10 @@ func RunRestServer(configPath string) {
 				switch event.Type {
 				case clientv3.EventTypePut:
 					nodeID := string(event.Kv.Key)
-					newHostInfo := &perf.HostInfo{}
+					newHostInfo := &struct {
+						*service.SpecConfig
+						*perf.HostInfo
+					}{}
 					json.Unmarshal(event.Kv.Value, newHostInfo)
 					hostInfo[nodeID] = newHostInfo
 				case clientv3.EventTypeDelete:
@@ -130,15 +145,17 @@ func RestServe(ctx context.Context) {
 func prepareGetInstancesHandler() (fn gin.HandlerFunc) {
 	fn = func(c *gin.Context) {
 		var infoList []*struct {
+			*service.SpecConfig
 			*perf.HostInfo
 			NodeID string `json:"nodeid"`
 		}
 
 		for key, value := range hostInfo {
 			infoList = append(infoList, &struct {
+				*service.SpecConfig
 				*perf.HostInfo
-				NodeID string `json:"nodeid"`
-			}{value, strings.TrimPrefix(key, "host-info:")})
+				NodeID string "json:\"nodeid\""
+			}{value.SpecConfig, value.HostInfo, strings.TrimPrefix(key, "host-info:")})
 		}
 
 		c.JSON(http.StatusOK, gin.H{

@@ -19,11 +19,18 @@ type Config struct {
 	Etcd         *EtcdConfig         `yaml:"etcd"`
 	Grpc         *GrpcConfig         `yaml:"grpc"`
 	Rest         *RestConfig         `yaml:"rest"`
+	Spec         *SpecConfig         `yaml:"spec"`
 }
 
 var gConfig *Config
 
 type stringList []string
+
+type SpecConfig struct {
+	Name    string     `yaml:"name"`
+	Ingress stringList `yaml:"ingress"`
+	Egress  stringList `yaml:"egress"`
+}
 
 type RestConfig struct {
 	Addr       string `yaml:"addr"`
@@ -107,6 +114,10 @@ func (capturer *TCP_IPCapturer) MakeNewRules() {
 		rules[v.Type().Field(i).Name] = v.Field(i).Interface().(stringList)
 	}
 	capturer.Rules = rules
+}
+
+func extractSpecConfig() *SpecConfig {
+	return gConfig.Spec
 }
 
 func extractgRPCConfig() *GrpcConfig {

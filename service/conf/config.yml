@@ -25,3 +25,10 @@ grpc:
 rest:
   addr: "localhost:7000"
   production: true
+
+spec:
+  name: "node1:Application"
+  ingress:
+    - "nginx:load-balancer"
+  
+  

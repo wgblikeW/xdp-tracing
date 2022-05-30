@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -297,11 +298,17 @@ func (etcdService *EtcdService) Serve() {
 	// Sign up the server with IPAddrress in Service Registration
 	etcdService.Client.Put(etcdService.Ctx, fmt.Sprintf("node:%v", etcdService.NodeID),
 		utils.LocalIPObtain()+":"+strconv.Itoa(gRPCListenPort), clientv3.WithLease(leaseResp.ID))
+	specConf := extractSpecConfig()
 	// Regist the information related to the machine and periodically refresh
 	go func() {
 		for {
+			hostInfo := struct {
+				*perf.HostInfo
+				*SpecConfig
+			}{perf.GetHostPerf(), specConf}
+			out, _ := json.Marshal(hostInfo)
 			etcdService.Client.Put(etcdService.Ctx, fmt.Sprintf("host-info:%v", etcdService.NodeID),
-				string(perf.GetHostPerf()), clientv3.WithLease(leaseResp.ID))
+				string(out), clientv3.WithLease(leaseResp.ID))
 
 			select {
 			case <-etcdService.Ctx.Done():
