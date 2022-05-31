@@ -159,9 +159,10 @@ func prepareGetInstancesHandler() (fn gin.HandlerFunc) {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"code": 0,
-			"msg":  "response from /get/instances",
-			"data": infoList,
+			"code":          0,
+			"msg":           "response from /get/instances",
+			"sample_period": perf.SAMPLING_PERIOD,
+			"data":          infoList,
 		})
 	}
 	return

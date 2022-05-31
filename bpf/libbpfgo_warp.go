@@ -18,7 +18,7 @@ func MapRevoke(srcIP uint32, id uint32) {
 	if err != nil {
 		logrus.Warnf("[bpf] errors occurs when doing mapRevoke err=%v errcode=%v", err, errcode)
 	} else {
-		logrus.Warn("[bpf] successfully revoke map elem %v", srcIP)
+		logrus.Warnf("[bpf] successfully revoke map elem %v", srcIP)
 	}
 }
 
@@ -27,7 +27,7 @@ func MapUpdate(srcIP uint32, id uint32) {
 	if err != nil {
 		logrus.Warnf("[bpf] errors occurs when doing mapUpdate err=%v errcode=%v", err, errcode)
 	} else {
-		logrus.Warn("[bpf] successfully update map elem %v", srcIP)
+		logrus.Warnf("[bpf] successfully update map elem %v", srcIP)
 	}
 }
 

@@ -314,7 +314,7 @@ func (etcdService *EtcdService) Serve() {
 			case <-etcdService.Ctx.Done():
 				return
 			default:
-				time.Sleep(time.Second * 10)
+				time.Sleep(time.Second * perf.SAMPLING_PERIOD)
 			}
 		}
 	}()

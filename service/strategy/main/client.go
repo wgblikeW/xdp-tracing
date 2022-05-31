@@ -123,9 +123,9 @@ func (tContro *testPolicyContro) Append(policy string) {
 
 func (tContro *testPolicyContro) Generate(ctx context.Context) {
 	// This should using Read() and Append() to operate Policy safely
-	newRules := "172.17.0.10"
+	newRules := "172.17.0.11"
 	tContro.Append(newRules)
-	go SendRPCToPeers(ctx, InstallStrategy, []byte(newRules))
+	go SendRPCToPeers(ctx, RevokeStrategy, []byte(newRules))
 }
 
 func (tContro *testPolicyContro) ToByte() []byte {
@@ -206,9 +206,9 @@ func makeTLSConfiguration(credsPath string) credentials.TransportCredentials {
 }
 
 func main() {
-	if len(os.Args) < 4 {
+	if len(os.Args) < 3 {
 		logrus.Fatal("./policy-controller [required <path of config.yml>]" +
-			" [required <path of credentials>]" + "[required <boostrap-restServer>]")
+			" [required <path of credentials>]")
 	}
 
 	err := service.ReadAndParseConfig(os.Args[1])
@@ -276,7 +276,7 @@ out:
 // remote server crash) it should ensure the every call will be treaded properly
 // (in the end it will go to remote server or remote server leave the cluster)
 func sendInstallStrategyRPC(params *sendRPCParams, recycle chan<- *Retry) {
-	logrus.Infof("[Policy Controller] trying sending RPC to %v", params.IPAddr)
+	logrus.Infof("[Policy Controller] trying sending InstallStrategyRPC to %v", params.IPAddr)
 	c, err := makeClient(params.IPAddr)
 	if err != nil {
 		logrus.Warnf("[Policy Controller] error occurs when making Client err=", err.Error())
@@ -297,11 +297,11 @@ func sendInstallStrategyRPC(params *sendRPCParams, recycle chan<- *Retry) {
 }
 
 func sendRevokeStrategyRPC(params *sendRPCParams, recycle chan<- *Retry) {
-	logrus.Infof("[Policy Controller] trying sending RPC to %v", params.IPAddr)
+	logrus.Infof("[Policy Controller] trying sending RevokeStrategyRPC to %v", params.IPAddr)
 	c, err := makeClient(params.IPAddr)
 	if err != nil {
 		logrus.Warnf("[Policy Controller] error occurs when making Client err=", err.Error())
-		recycle <- &Retry{RPCParams: params, RPCType: InstallStrategy, Reason: err.Error()}
+		recycle <- &Retry{RPCParams: params, RPCType: RevokeStrategy, Reason: err.Error()}
 		return
 	}
 	// Contact the server and print out its response.
@@ -310,7 +310,7 @@ func sendRevokeStrategyRPC(params *sendRPCParams, recycle chan<- *Retry) {
 
 	r, err := c.RevokeStrategy(ctxT, &strategy.UpdateStrategy{Blockoutrules: params.Policy})
 	if err != nil {
-		recycle <- &Retry{RPCParams: params, RPCType: InstallStrategy, Reason: err.Error()}
+		recycle <- &Retry{RPCParams: params, RPCType: RevokeStrategy, Reason: err.Error()}
 		logrus.Warnf("[Policy Controller] error occurs when sending RevokeStrategyRPC to %v err=%v", params.IPAddr, err)
 		return
 	}
