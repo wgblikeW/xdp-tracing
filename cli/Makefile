@@ -19,7 +19,8 @@ GO_VERSION_MIN = $(shell echo $(GO_VERSION) | $(CMD_CUT) -d'.' -f2)
 		fi
 	fi
 	touch $@
-	
+
+PHONY: all
 all: go_target
 
 go_target: main.go
