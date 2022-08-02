@@ -3,6 +3,7 @@ module github.com/p1nant0m/xdp-tracing
 go 1.18
 
 require (
+	github.com/aquasecurity/libbpfgo v0.3.0-libbpf-0.8.0
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/google/gopacket v1.1.19
@@ -56,7 +57,7 @@ require (
 	go.uber.org/zap v1.17.0 // indirect
 	golang.org/x/crypto v0.0.0-20220513210258-46612604a0f9 // indirect
 	golang.org/x/net v0.0.0-20220412020605-290c469a71a5 // indirect
-	golang.org/x/sys v0.0.0-20220513210249-45d2b4557a2a // indirect
+	golang.org/x/sys v0.0.0-20220731174439-a90be440212d // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/genproto v0.0.0-20220407144326-9054f6ed7bac // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect

@@ -14,3 +14,25 @@ go_target: xdp-proxy.o libbpfgo_warp.go
 
 clean:
 	rm xdp-proxy.skel.h xdp-proxy vmlinux.h xdp_proxy_kern.o xdp-proxy.o
+
+.PHONY: vmlinux
+vmlinux:
+	bpftool btf dump file /sys/kernel/btf/vmlinux format c > ./headers/vmlinux.h
+
+CLANG ?= clang
+CFLAGS = -g -O2 -Wall -fpie
+ARCH = x86
+OUTPUT = ./output
+
+COMMANDS ?= $(wildcard *.bpf.c)
+.PHONY: bpf.build
+bpf.build: $(addprefix bpf.build.,$(foreach cmd,$(COMMANDS),$(word 1,$(subst ., ,$(cmd)))))
+
+
+.PHONY: bpf.build.%
+bpf.build.%:
+	@mkdir -p $(OUTPUT)
+	$(CLANG) $(CFLAGS) -target bpf -D__TARGET_ARCH_$(ARCH) \
+	-I./headers \
+	-c ./$*.bpf.c -o $(OUTPUT)/$*.bpf.o
+	@echo -e '\n\n'
