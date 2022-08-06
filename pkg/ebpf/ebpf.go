@@ -1,3 +1,7 @@
+// Copyright 2022 p1nant0m <wgblike@gmail.com>. All rights reserved.
+// Use of this source code is governed by a MIT style
+// license that can be found in the LICENSE file.
+
 /*
 Pacakge ebpf aims to help developers to create, load, and attach different eBPF program to
 specific target quickly and elegantly. What's more, it's important to manage the

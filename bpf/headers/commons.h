@@ -1,3 +1,9 @@
+/*
+ * Copyright 2022 p1nant0m <wgblike@gmail.com>. All rights reserved.
+ * Use of this source code is governed by a MIT style
+ * license that can be found in the LICENSE file.
+ */
+
 #define BPF_MAP(_name, _type, _key_type, _value_type, _max_entries) \
     struct                                                          \
     {                                                               \
