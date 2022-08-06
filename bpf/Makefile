@@ -36,3 +36,7 @@ bpf.build.%:
 	-I./headers \
 	-c ./$*.bpf.c -o $(OUTPUT)/$*.bpf.o
 	@echo -e '\n\n'
+
+.PHONY: clean
+clean:
+	@rm -rf ./output
