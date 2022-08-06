@@ -3,12 +3,12 @@
 #include <bpf/bpf_tracing.h>
 #include "headers/commons.h"
 
-BPF_RINGBUF(events, 1024)
+BPF_RINGBUF(perfs, 1024)
 
 SEC("xdp")
 int __test_trace_xdp(struct xdp_md *ctx) {
     int *lucknum;
-    lucknum = bpf_ringbuf_reserve(&events, sizeof(int), 0);
+    lucknum = bpf_ringbuf_reserve(&perfs, sizeof(int), 0);
     if (!lucknum) {
         return XDP_PASS;
     }

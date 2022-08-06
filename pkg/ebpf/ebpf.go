@@ -9,6 +9,7 @@ building a eBPF program.
 package ebpf
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -32,6 +33,16 @@ type BPFManager struct {
 	programMaps map[string]probe.BPFProgram
 	bpfModule   *libbpfgo.Module
 	bpfPrograms []probe.BPFProgram
+	ctx         context.Context
+}
+
+// WithContext allows passing context parameter to BPFManager in order
+// to keep on the whole program state.
+func WithContext(ctx context.Context) Option {
+	return func(b *BPFManager) error {
+		b.ctx = ctx
+		return nil
+	}
 }
 
 // WithBPFModuleFromFile is used to instantiate the BPFModule from
@@ -147,7 +158,9 @@ func (manager *BPFManager) AttachAll() error {
 }
 
 // AttachGiven attach BPFProgram which was registed with given name.
-func (manager *BPFManager) AttachGiven(progName string) error {
+// It will return the first error where it fails to attach eBPF program.
+// and the rest of them will not try to attach.
+func (manager *BPFManager) AttachGiven(progNames ...string) error {
 	var err error
 
 	err = checkBPFObjLoadOr(manager.bpfModule)
@@ -159,25 +172,27 @@ func (manager *BPFManager) AttachGiven(progName string) error {
 		return err
 	}
 
-	if prog, exists := manager.programMaps[progName]; exists {
-		err := prog.Attach(manager.bpfModule)
-		if err != nil {
+	for _, progName := range progNames {
+		if prog, exists := manager.programMaps[progName]; exists {
+			err := prog.Attach(manager.bpfModule)
+			if err != nil {
+				logrus.WithFields(logrus.Fields{
+					"err":       err,
+					"location":  "(*BPFManager) AttachGiven",
+					"progName":  progName,
+					"hookpoint": prog.GetHookPoint(),
+				}).Warningf("error occurs when attach bpfProgram to its Hook point")
+
+				return err
+			}
+		} else {
 			logrus.WithFields(logrus.Fields{
-				"err":       err,
-				"location":  "(*BPFManager) AttachGiven",
-				"progName":  progName,
-				"hookpoint": prog.GetHookPoint(),
-			}).Warningf("error occurs when attach bpfProgram to its Hook point")
+				"location": "(*BPFManager) AttachGiven",
+				"progName": progName,
+			}).Warningf("there is no bpfProgram was registed with given progName")
 
-			return err
+			return fmt.Errorf("bpfProgram with name %v was not registed", progName)
 		}
-	} else {
-		logrus.WithFields(logrus.Fields{
-			"location": "(*BPFManager) AttachGiven",
-			"progName": progName,
-		}).Warningf("there is no bpfProgram was registed with given progName")
-
-		return fmt.Errorf("bpfProgram with name %v was not registed", progName)
 	}
 
 	return nil

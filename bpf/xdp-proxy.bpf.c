@@ -9,8 +9,6 @@
 #include <linux/tcp.h>
 #include "headers/sockops.h"
 
-
-
 SEC("xdp")
 int xdp_proxy(struct xdp_md *ctx)
 {   
