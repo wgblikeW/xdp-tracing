@@ -27,7 +27,7 @@ grpc:
   credentialpath: "../service/strategy/x509/"
 
 rest:
-  addr: "localhost:7000"
+  addr: "192.168.176.128:7000"
   production: true
 
 spec:
