@@ -25,16 +25,17 @@ type TCPIPIdentifier struct {
 }
 
 type SavingSessionOptions struct {
+	*MongoDBGenericOptions
 }
 
 type GetSpecificSessionOptions struct {
 	*MongoDBGenericOptions
-	Database   string
-	Collection string
+	FindOptions []*options.FindOptions
 }
 
 type MongoDBGenericOptions struct {
+	Database      string
+	Collection    string
 	DBoptions     []*options.DatabaseOptions
 	CollecOptions []*options.CollectionOptions
-	FindOptions   []*options.FindOptions
 }

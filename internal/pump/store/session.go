@@ -10,6 +10,6 @@ import (
 // SessionStore is an interface that defines the methods that will be
 // used in Service layer, and it operates in storage layer.
 type SessionStore interface {
-	SavingSession(context.Context, []*v1.Session, metav1.SavingSessionOptions) error
+	SavingSession(context.Context, *v1.Session, metav1.SavingSessionOptions) error
 	GetSpecificSession(context.Context, string, metav1.GetSpecificSessionOptions) ([]*v1.Session, error)
 }

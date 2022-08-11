@@ -43,6 +43,13 @@ func (s *session) GetSpecificSession(ctx context.Context, id string, opts metav1
 	return packets, nil
 }
 
-func (s *session) SavingSession(ctx context.Context, packets []*v1.Session, opts metav1.SavingSessionOptions) error {
+func (s *session) SavingSession(ctx context.Context, packet *v1.Session, opts metav1.SavingSessionOptions) error {
+	coll := s.client.Database(opts.Database, opts.DBoptions...).Collection(opts.Collection, opts.CollecOptions...)
+
+	_, err := coll.InsertOne(ctx, packet)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
