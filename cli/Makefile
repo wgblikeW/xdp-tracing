@@ -24,7 +24,7 @@ PHONY: all
 all: go_target
 
 go_target: main.go
-	CC=$(CMD_CLANG) CGO_CFLAGS="-I/usr/include/bpf" CGO_LDFLAGS="/usr/lib64/libbpf.so.0.7.0" go build -buildvcs=false -o xdp-tracing
+	CC=$(CMD_CLANG) CGO_CFLAGS="-I/usr/include/" CGO_LDFLAGS="/usr/lib64/libbpf.so.0.7.0" go build -buildvcs=false -o xdp-tracing
 
 clean:
 	rm xdp-tracing

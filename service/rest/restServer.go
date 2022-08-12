@@ -22,6 +22,8 @@ import (
 	"github.com/p1nant0m/xdp-tracing/handler/utils"
 	"github.com/p1nant0m/xdp-tracing/perf"
 	"github.com/p1nant0m/xdp-tracing/service"
+	"github.com/p1nant0m/xdp-tracing/service/rest/controller/v1/policy"
+	"github.com/p1nant0m/xdp-tracing/service/rest/store/local"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -128,6 +130,19 @@ func RestServe(ctx context.Context) {
 
 	r := gin.Default()
 	r.Use(CORSMiddleware())
+	dbIns, _ := local.GetLocalStorageFactoryOr()
+	v1 := r.Group("/v1")
+	{
+		policyv1 := v1.Group("/policies")
+		{
+			policyController := policy.NewPolicyController(dbIns)
+
+			policyv1.GET("", policyController.List)
+			policyv1.GET(":ip", policyController.Get)
+			policyv1.DELETE(":ip", policyController.Delete)
+			policyv1.POST("", policyController.Create)
+		}
+	}
 	r.GET("get/session/all", getAllSessionHandler)
 	r.GET("get/session/:key", getSessionPackets)
 	r.GET("get/instances", getInstancesHandler)
