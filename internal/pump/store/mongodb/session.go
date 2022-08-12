@@ -9,6 +9,14 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+const (
+	DeleteNothing int64 = 0
+)
+
+var filterFunc = func(id string) bson.M {
+	return bson.M{"identifier": id}
+}
+
 type session struct {
 	client *mongo.Client
 }
@@ -19,7 +27,7 @@ func newSession(ds *datastore) *session {
 
 func (s *session) GetSpecificSession(ctx context.Context, id string, opts metav1.GetSpecificSessionOptions) ([]*v1.Session, error) {
 	coll := s.client.Database(opts.Database, opts.DBoptions...).Collection(opts.Collection, opts.CollecOptions...)
-	filter := bson.M{"identifier": id}
+	filter := filterFunc(id)
 
 	cur, err := coll.Find(ctx, filter)
 	if err != nil {
@@ -52,4 +60,16 @@ func (s *session) SavingSession(ctx context.Context, packet *v1.Session, opts me
 	}
 
 	return nil
+}
+
+func (s *session) DeleteSession(ctx context.Context, id string, opts metav1.DeleteSessionOptions) (int64, error) {
+	coll := s.client.Database(opts.Database, opts.DBoptions...).Collection(opts.Collection, opts.CollecOptions...)
+	filter := filterFunc(id)
+
+	result, err := coll.DeleteMany(ctx, filter, opts.DeleteOptions...)
+	if err != nil {
+		return DeleteNothing, err
+	}
+
+	return result.DeletedCount, nil
 }

@@ -12,4 +12,5 @@ import (
 type SessionStore interface {
 	SavingSession(context.Context, *v1.Session, metav1.SavingSessionOptions) error
 	GetSpecificSession(context.Context, string, metav1.GetSpecificSessionOptions) ([]*v1.Session, error)
+	DeleteSession(context.Context, string, metav1.DeleteSessionOptions) (int64, error)
 }

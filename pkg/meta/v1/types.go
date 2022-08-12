@@ -33,6 +33,11 @@ type GetSpecificSessionOptions struct {
 	FindOptions []*options.FindOptions
 }
 
+type DeleteSessionOptions struct {
+	*MongoDBGenericOptions
+	DeleteOptions []*options.DeleteOptions
+}
+
 type MongoDBGenericOptions struct {
 	Database      string
 	Collection    string
