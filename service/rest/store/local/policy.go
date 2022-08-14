@@ -1,7 +1,5 @@
 package local
 
-import "strings"
-
 type policy struct {
 	ds *datastore
 }
@@ -10,9 +8,9 @@ func newPolicy(ds *datastore) *policy {
 	return &policy{ds}
 }
 
-func (p *policy) List() (string, error) {
+func (p *policy) List() ([]string, error) {
 	policies, err := p.ds.db.List()
-	return strings.Join(policies, " "), err
+	return policies, err
 }
 
 func (p *policy) Create(policy string) error {

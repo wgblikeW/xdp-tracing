@@ -42,7 +42,7 @@ func (s *Server) RevokeStrategy(ctx context.Context,
 	in *UpdateStrategy) (*UpdateStrategyReply, error) {
 	rulesList := strings.Split(string(in.Blockoutrules), " ")
 	for _, rule := range rulesList {
-		if _, exists := localPolicyCache[rule]; !exists {
+		if _, exists := localPolicyCache[rule]; exists {
 			delete(localPolicyCache, rule)
 			s.LocalStrategyCh <- &PolicyOp{Type: REVOKE, Rule: rule}
 		}

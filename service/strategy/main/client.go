@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/imroc/req/v3"
 	"github.com/p1nant0m/xdp-tracing/service"
 	"github.com/p1nant0m/xdp-tracing/service/strategy"
 	"github.com/sirupsen/logrus"
@@ -39,8 +40,20 @@ const (
 	RevokeStrategy
 )
 
+func (r RPCType) ToString() string {
+	switch r {
+	case InstallStrategy:
+		return "InstallStrategy"
+	case RevokeStrategy:
+		return "RevokeStrategy"
+	default:
+		return "Unknown Type"
+	}
+}
+
 const (
 	KEEP_ALIVE_TIMEOUT = 65
+	MaximumRetries     = 5
 )
 
 type Retry struct {
@@ -48,6 +61,7 @@ type Retry struct {
 	RPCType     RPCType
 	Reason      string
 	RetryPeriod time.Duration
+	RetryTimes  int // TODO: Maximum retry times
 }
 
 type PolicyController interface {
@@ -77,10 +91,14 @@ var (
 	recycleCh  chan *Retry                      = make(chan *Retry, 10)
 )
 
+type Empty struct{}
+
+var empty Empty
+
 type PolicyControFromRest struct {
-	mu              sync.Mutex
-	BootstrapServer string
-	Policy          []string
+	mu     sync.Mutex
+	record map[string]Empty
+	Policy []string
 }
 
 func (rContro *PolicyControFromRest) Read() string {
@@ -92,6 +110,7 @@ func (rContro *PolicyControFromRest) Read() string {
 func (rContro *PolicyControFromRest) Append(policy string) {
 	rContro.mu.Lock()
 	defer rContro.mu.Unlock()
+	rContro.record[policy] = empty
 	rContro.Policy = append(rContro.Policy, policy)
 }
 
@@ -99,6 +118,65 @@ func (rContro *PolicyControFromRest) Generate(ctx context.Context) {
 	// This should using Read() and Append() to operate Policy safely
 	/** TODO: Request RestAPI for the newest judgement about the Application Data Flow
 	Make Policy based on the prediction whether an action was malicious or not **/
+	opts := service.ExtractRestConfig()
+	if opts == nil {
+		logrus.Fatalf("fail to read config opts %v", opts)
+	}
+
+	client := req.C().
+		SetUserAgent("policy-controller/v1").
+		SetTimeout(5*time.Second).
+		SetCommonHeader("Accept", "application/json").
+		SetBaseURL("http://" + opts.Addr)
+
+	resp, err := client.R().Get("/healthz")
+	if resp.IsError() || err != nil {
+		logrus.Fatalf("cannot make communication with apiServer", "err=", err)
+	}
+
+	ticker := time.NewTicker(time.Second * 3)
+	for {
+		<-ticker.C
+		policies := struct {
+			Policies []string `json:"data"`
+		}{}
+		resp, err := client.R().
+			SetResult(&policies).
+			Get("/v1/policies")
+
+		if err != nil {
+			logrus.Warning("error occurs when request /v1/policies", "err=", err)
+		}
+
+		if resp.IsSuccess() {
+			mark := make(map[string]Empty, len(policies.Policies))
+			for _, item := range policies.Policies {
+				mark[item] = empty
+				if _, exists := rContro.record[item]; !exists {
+					rContro.mu.Lock()
+					rContro.record[item] = empty
+					rContro.mu.Unlock()
+					go SendRPCToPeers(ctx, InstallStrategy, []byte(item))
+				}
+			}
+
+			for _, item := range rContro.Policy {
+				if _, exists := mark[item]; !exists {
+					rContro.mu.Lock()
+					delete(rContro.record, item)
+					rContro.mu.Unlock()
+					go SendRPCToPeers(ctx, RevokeStrategy, []byte(item))
+				}
+			}
+
+			rContro.mu.Lock()
+			rContro.Policy = policies.Policies
+			logrus.Debugf("Policy: %v", rContro.Policy)
+			rContro.mu.Unlock()
+
+		}
+
+	}
 }
 
 func (rContro *PolicyControFromRest) ToByte() []byte {
@@ -139,6 +217,7 @@ func (tContro *testPolicyContro) ToByte() []byte {
 
 // SendRPCToPeers will call registed RPC method based on input "rpcTpye" to every node in the cluster
 func SendRPCToPeers(ctx context.Context, rpcType RPCType, policy []byte) {
+	logrus.Debugf("SendRPCToPeers called rpcType: %v policy %v", rpcType.ToString(), policy)
 	var goFunc func(*sendRPCParams, chan<- *Retry)
 
 	// Choosing different Handle Function for Sending RPC
@@ -210,6 +289,10 @@ func makeTLSConfiguration(credsPath string) credentials.TransportCredentials {
 }
 
 func main() {
+	if os.Getenv("LOG_LEVEL") == "DEBUG" {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+
 	if len(os.Args) < 3 {
 		logrus.Fatal("./policy-controller [required <path of config.yml>]" +
 			" [required <path of credentials>]")
@@ -234,7 +317,7 @@ func main() {
 
 	// Make TLS Configuration for gRPC Client
 	creds = makeTLSConfiguration(os.Args[2])
-	var testGen PolicyController = &testPolicyContro{}
+	var testGen PolicyController = &PolicyControFromRest{record: make(map[string]Empty)}
 
 	nodeWatcher(ctx, testGen) // this goroutine trace the modification of cluster nodes, and sync the cluster policy
 	go testGen.Generate(ctx)  // this goroutine used for receiving new policy instrcution

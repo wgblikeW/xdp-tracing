@@ -146,6 +146,9 @@ func RestServe(ctx context.Context) {
 	r.GET("get/session/all", getAllSessionHandler)
 	r.GET("get/session/:key", getSessionPackets)
 	r.GET("get/instances", getInstancesHandler)
+	r.GET("healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"msg": "response form healthz", "timestamp": time.Now().Unix()})
+	})
 	r.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": "no definition of " + c.Request.RequestURI,

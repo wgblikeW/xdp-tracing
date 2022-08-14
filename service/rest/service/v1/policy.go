@@ -10,7 +10,7 @@ import (
 type PolicySrv interface {
 	Create(context.Context, v1.Policy) error
 	Delete(context.Context, string) error
-	List(context.Context) (string, error)
+	List(context.Context) ([]string, error)
 }
 
 type policyService struct {
@@ -37,10 +37,10 @@ func (p *policyService) Delete(ctx context.Context, policy string) error {
 	return nil
 }
 
-func (p *policyService) List(ctx context.Context) (string, error) {
+func (p *policyService) List(ctx context.Context) ([]string, error) {
 	policies, err := p.store.Policy().List()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return policies, nil
 }
