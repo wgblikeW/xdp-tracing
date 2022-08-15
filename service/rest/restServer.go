@@ -33,9 +33,11 @@ const (
 	REDIS_SERVICE       = "redis-service"
 )
 
-var (
-	localIPv4 string
+var empty struct{}
 
+var (
+	localIPv4      string
+	clusterIPRange map[string]struct{} = make(map[string]struct{})
 	// Union Json Representation
 	hostInfo map[string]*struct {
 		*service.SpecConfig
@@ -85,6 +87,7 @@ func RunRestServer(configPath string) {
 			}{}
 			json.Unmarshal(kv.Value, newHostInfo)
 			hostInfo[string(kv.Key)] = newHostInfo
+			clusterIPRange[newHostInfo.HostIpv4] = empty
 		}
 
 		watchCh := client.Watch(ctx, "host-info", clientv3.WithPrefix())
@@ -99,8 +102,10 @@ func RunRestServer(configPath string) {
 					}{}
 					json.Unmarshal(event.Kv.Value, newHostInfo)
 					hostInfo[nodeID] = newHostInfo
+					clusterIPRange[newHostInfo.HostIpv4] = empty
 				case clientv3.EventTypeDelete:
 					nodeID := string(event.Kv.Key)
+					delete(clusterIPRange, hostInfo[nodeID].HostIpv4)
 					delete(hostInfo, nodeID)
 				}
 			}
@@ -247,7 +252,7 @@ func preparegetSessionPackets(redisService *service.RedisService) (fn gin.Handle
 
 		var direction string // This will indicate the Data Flow direction between client and server
 		kk := service.DecodeKey(string(key))
-		if kk.DstIP.To4().String() == localIPv4 {
+		if _, exists := clusterIPRange[kk.DstIP.To4().String()]; exists {
 			// Ingress
 			direction = "Ingress"
 		} else {

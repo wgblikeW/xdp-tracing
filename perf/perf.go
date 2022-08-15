@@ -107,6 +107,6 @@ func GetHostPerf() *HostInfo {
 	previousByteSend = counterStat[0].BytesSent
 	previousByteReve = counterStat[0].BytesRecv
 	previousByteRead = diskCounter["sda3"].ReadBytes
-	previousByteReve = diskCounter["sda3"].WriteBytes
+	previousByteWrite = diskCounter["sda3"].WriteBytes
 	return host
 }
