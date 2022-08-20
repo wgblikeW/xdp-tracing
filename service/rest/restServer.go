@@ -22,6 +22,7 @@ import (
 	"github.com/p1nant0m/xdp-tracing/handler/utils"
 	"github.com/p1nant0m/xdp-tracing/perf"
 	"github.com/p1nant0m/xdp-tracing/service"
+	loganalysis "github.com/p1nant0m/xdp-tracing/service/rest/controller/logAnalysis"
 	"github.com/p1nant0m/xdp-tracing/service/rest/controller/v1/policy"
 	"github.com/p1nant0m/xdp-tracing/service/rest/store/local"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -159,6 +160,23 @@ func RestServe(ctx context.Context) {
 			"error": "no definition of " + c.Request.RequestURI,
 		})
 	})
+
+	logAnalysis := r.Group("/logAnalysis")
+	{
+		logAnalysisController := loganalysis.NewLogAnalysisController()
+		helperFunc := func(api string) {
+			logAnalysis.GET(api, logAnalysisController.Redirect)
+		}
+
+		helperFunc("/get/instances")
+		helperFunc("/get/statusCodeProportion")
+		helperFunc("/get/ipRequestCount")
+		helperFunc("/get/hotResources")
+		helperFunc("/get/timeRequestCount")
+		helperFunc("/get/requestMethod")
+		helperFunc("/get/hotIP")
+		helperFunc("/get/resourceCount")
+	}
 
 	go r.Run(restConfig.Addr)
 

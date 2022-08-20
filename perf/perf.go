@@ -98,14 +98,14 @@ func GetHostPerf() *HostInfo {
 		OpenPort:   openPort.ToList(),
 		CPUUsage:   cpuUsage[0],
 		MemUsage:   memUsage,
-		BytesSent:  counterStat[0].BytesSent - previousByteSend,
-		BytesRecv:  counterStat[0].BytesRecv - previousByteReve,
+		BytesSent:  counterStat[0].BytesSent,
+		BytesRecv:  counterStat[0].BytesRecv,
 		ReadBytes:  diskCounter["sda3"].ReadBytes - previousByteRead,
 		WriteBytes: diskCounter["sda3"].WriteBytes - previousByteWrite,
 	}
 
-	previousByteSend = counterStat[0].BytesSent
-	previousByteReve = counterStat[0].BytesRecv
+	// previousByteSend = counterStat[0].BytesSent
+	// previousByteReve = counterStat[0].BytesRecv
 	previousByteRead = diskCounter["sda3"].ReadBytes
 	previousByteWrite = diskCounter["sda3"].WriteBytes
 	return host
