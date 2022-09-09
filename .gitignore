@@ -5,3 +5,6 @@ xdp-proxy
 *.key
 openssl-san.cnf
 main
+
+# generate file
+bpf/headers/vmlinux.h

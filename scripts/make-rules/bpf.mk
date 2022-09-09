@@ -18,8 +18,12 @@ CGO_LDFLAGS_DYN = "-lelf -lz -lbpf"
 COMMANDS ?= $(wildcard $(BPF_DIR)/*/*.bpf.c)
 BPF_TARGET = $(foreach cmd,$(COMMANDS),$(notdir $(cmd)))
 
+.PHONY: gen.vmlinux
+gen.vmlinux:
+	bpftool btf dump file /sys/kernel/btf/vmlinux format c > $(ROOT_DIR)/bpf/headers/vmlinux.h
+
 .PHONY: bpf.build.%
-bpf.build.%:
+bpf.build.%: gen.vmlinux
 	@mkdir -p $(OUTPUT)/bpf
 	$(CLANG) $(CFLAGS) -target bpf -D__TARGET_ARCH_$(ARCH) \
 	-I$(ROOT_DIR)/bpf/include -I$(BPF_DIR)/$*/ \
